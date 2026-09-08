@@ -444,7 +444,21 @@
   .cust-size-head label{font-size:13px;font-weight:600;color:var(--ink-soft);}
   .cust-size-head strong{font-size:13px;color:var(--ink);}
   .cust-size-control input[type=range]{width:100%;}
-  .cust-strip .strip-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;transform-origin:center center;}
+  .cust-strip .strip-item img{
+    position:absolute;
+    left:0;
+    top:0;
+    width:auto;
+    height:auto;
+    max-width:none;
+    max-height:none;
+    display:block;
+    pointer-events:none;
+    user-select:none;
+    -webkit-user-drag:none;
+    transform:none;
+    transform-origin:top left;
+  }
   .cust-strip .strip-item.active-item{outline:3px solid var(--accent);outline-offset:-3px;z-index:2;}
   .cust-strip .strip-item::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(15,17,12,.22));opacity:0;transition:opacity .15s;}
   .cust-strip .strip-item.active-item::after{opacity:1;}
@@ -841,7 +855,20 @@ async function generateComparison(projectName, entries, orientation='horizontal'
 
     ctx.restore();
 
-
+    // 白色分割线
+    if(i < n - 1){
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; 
+      ctx.lineWidth = Math.max(1.5, Math.round(minDim * 0.006)); 
+      ctx.beginPath();
+      if(orientation === 'horizontal'){
+        ctx.moveTo(x + w, y);
+        ctx.lineTo(x + w, y + h);
+      } else {
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w, y + h);
+      }
+      ctx.stroke();
+    }
   });
 
   return canvas.toDataURL('image/png');
@@ -1583,27 +1610,44 @@ async function bindCompareCustomize(proj, meta){
       if(el){
         el.style.width = itemW + 'px';
         el.style.height = itemH + 'px';
+        updateImage(c);
       }
     });
 
     ratioSlider.value = String(ratio);
   }
 
+  // 预览与最终 Canvas 使用完全相同的裁切/定位算法。
   function updateImage(c){
     const img = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(!img) return;
-    
-    const px = Math.round((c.focalX ?? 0.5) * 100);
-    const py = Math.round((c.focalY ?? 0.5) * 100);
-    img.style.objectFit = 'cover';
-    img.style.objectPosition = `${px}% ${py}%`;
-    img.style.transform = `scale(${c.zoom ?? 1})`;
+    const item = strip.querySelector(`[data-strip="${c.date}"]`);
+    if(!img || !item || !img.naturalWidth || !img.naturalHeight) return;
+
+    const w = item.clientWidth;
+    const h = item.clientHeight;
+    if(w <= 0 || h <= 0) return;
+
+    const focalX = c.focalX == null ? 0.5 : c.focalX;
+    const focalY = c.focalY == null ? 0.5 : c.focalY;
+    const zoom = Math.max(1, c.zoom || 1);
+
+    const baseScale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * baseScale * zoom;
+    const dh = img.naturalHeight * baseScale * zoom;
+
+    img.style.width = `${dw}px`;
+    img.style.height = `${dh}px`;
+    img.style.left = `${(w - dw) * focalX}px`;
+    img.style.top = `${(h - dh) * focalY}px`;
   }
 
   await Promise.all(compareCustom.map(async c => {
     c.photo = await loadPhoto(proj.id, c.date);
     const img = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(img && c.photo) img.src = c.photo;
+    if(img && c.photo){
+      img.onload = () => updateImage(c);
+      img.src = c.photo;
+    }
     updateImage(c);
   }));
 
@@ -1691,8 +1735,30 @@ async function bindCompareCustomize(proj, meta){
         return { date: c.date, note: m ? m.note : '', photo: c.photo, focalX: c.focalX, focalY: c.focalY, zoom: c.zoom || 1 };
       });
       const image = await generateComparison(proj.name, entries, compareCustom.orientation, compareCustom.ratio);
-      view = { name: 'compareResult', id: proj.id, image, orientation: compareCustom.orientation };
-      compareMode = false; selected = new Set(); compareCustom = []; render();
+
+      // 生成结果后保留当前拼图调整状态，返回时可以继续调整。
+      const customizeState = {
+        orientation: compareCustom.orientation || 'horizontal',
+        ratio: compareCustom.ratio ?? 0.62,
+        activeDate: compareCustom.activeDate || compareCustom[0]?.date || null,
+        items: compareCustom.map(c => ({
+          date: c.date,
+          focalX: c.focalX ?? 0.5,
+          focalY: c.focalY ?? 0.5,
+          zoom: c.zoom || 1
+        }))
+      };
+
+      view = {
+        name: 'compareResult',
+        id: proj.id,
+        image,
+        orientation: compareCustom.orientation,
+        customizeState
+      };
+      compareMode = false;
+      selected = new Set();
+      render();
     }catch(e){
       showToast('生成失败：' + e.message); 
       btn.disabled = false; 
@@ -1702,7 +1768,25 @@ async function bindCompareCustomize(proj, meta){
 }
 
 function bindCompareResult(){
-  document.getElementById('back-btn').onclick = () => { view={name:'project',id:view.id}; render(); };
+  document.getElementById('back-btn').onclick = () => {
+    const state = view.customizeState;
+    if(state && Array.isArray(state.items) && state.items.length){
+      compareCustom = state.items.map(c => ({
+        date: c.date,
+        focalX: c.focalX ?? 0.5,
+        focalY: c.focalY ?? 0.5,
+        zoom: c.zoom || 1
+      }));
+      compareCustom.orientation = state.orientation || 'horizontal';
+      compareCustom.ratio = state.ratio ?? 0.62;
+      compareCustom.activeDate = state.activeDate || compareCustom[0]?.date || null;
+      view = {name:'compareCustomize', id:view.id};
+      render();
+    } else {
+      view = {name:'project',id:view.id};
+      render();
+    }
+  };
   document.getElementById('result-back-btn').onclick = () => {
     view={name:'project',id:view.id}; compareMode=false; selected=new Set(); render();
   };
