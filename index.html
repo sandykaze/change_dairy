@@ -357,9 +357,9 @@
   .sheet-actions .save{background:var(--accent);color:#fff;}
   .sheet-actions .save:disabled{background:#B9C4BB;color:#fff;}
 
-  .compare-result img{width:100%;border-radius:12px;display:block;}
+  .compare-result img{width:100%;border-radius:0;display:block;}
 
-  /* ---- Crop tool (freeform selection over full photo) ---- */
+  /* ---- Crop tool ---- */
   #crop-stage{
     position:relative;
     margin:0 auto 14px;
@@ -430,10 +430,13 @@
   .global-size-head label{font-size:13px;font-weight:600;color:var(--ink-soft);}
   .global-size-head strong{font-size:13px;color:var(--ink);}
   .global-size input[type=range]{width:100%;}
+  .shape-row{display:flex;align-items:center;gap:10px;}
+  .shape-row input[type=range]{flex:1;width:auto;}
+  .shape-tag{font-size:12px;color:var(--ink-soft);flex-shrink:0;white-space:nowrap;}
   .touch-hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.45;}
-  .cust-preview-wrap{width:100%;overflow:hidden;border-radius:16px;margin-bottom:14px;background:var(--surface-alt);border:1px solid var(--border);-webkit-overflow-scrolling:touch;}
+  .cust-preview-wrap{width:100%;overflow:hidden;border-radius:0;margin-bottom:14px;background:var(--surface-alt);border:1px solid var(--border);-webkit-overflow-scrolling:touch;}
   .cust-preview-stage{width:100%;display:flex;overflow:hidden;justify-content:center;align-items:flex-start;padding:0;}
-  .cust-strip{display:flex;width:100%;height:auto;transform-origin:top center;border-radius:16px;overflow:hidden;background:var(--surface-alt);touch-action:none;user-select:none;flex:none;}
+  .cust-strip{display:flex;width:100%;height:auto;transform-origin:top center;border-radius:0;overflow:hidden;background:var(--surface-alt);touch-action:none;user-select:none;flex:none;}
   .cust-strip.vertical{display:flex;flex-direction:column;}
   .cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:0 0 auto;touch-action:none;background:#E4E7DF;}
   .cust-size-control{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 15px;margin-bottom:14px;}
@@ -446,8 +449,8 @@
   .cust-strip .strip-item::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(15,17,12,.22));opacity:0;transition:opacity .15s;}
   .cust-strip .strip-item.active-item::after{opacity:1;}
   .cust-item{display:none;}
-  .compare-result{width:100%;overflow-x:auto;overflow-y:auto;border-radius:16px;background:var(--surface-alt);border:1px solid var(--border);padding:8px;-webkit-overflow-scrolling:touch;}
-  .compare-result img{display:block;width:100%;max-width:100%;height:auto;border-radius:10px;margin:0 auto;}
+  .compare-result{width:100%;overflow-x:auto;overflow-y:auto;border-radius:0;background:var(--surface-alt);border:1px solid var(--border);padding:0;-webkit-overflow-scrolling:touch;}
+  .compare-result img{display:block;width:100%;max-width:100%;height:auto;border-radius:0;margin:0 auto;}
   .result-actions{display:flex;gap:10px;margin-top:14px;width:100%;}
   .result-action-btn{flex:1;min-width:0;padding:14px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--accent-dark);font-family:inherit;font-size:14px;font-weight:600;line-height:1.2;text-align:center;cursor:pointer;}
   .result-action-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
@@ -465,14 +468,14 @@
 
 <script>
 let projects = [];
-let view = { name: 'home' };           // {name:'home'} | {name:'project', id} | {name:'compareResult', id, image}
+let view = { name: 'home' };
 let compareMode = false;
 let selected = new Set();
-let modal = null;                       // {type:'newProject'} | {type:'editProject', id} | {type:'addEntry', projectId} | {type:'cropPhoto', projectId, rawDataUrl} | {type:'confirmDeleteProject', id} etc
+let modal = null;
 let toastTimer = null;
-let entryDraft = { date: null, note: '', photo: null, editingDate: null }; // in-progress add/edit-entry form, survives the crop step
-let compareCustom = [];                 // [{date, weight, focalX}] per-photo width/exposed-range settings for the current comparison
-const CROP_OUT_MAX = 1400; // longest edge (px) for a saved/cropped photo
+let entryDraft = { date: null, note: '', photo: null, editingDate: null };
+let compareCustom = [];
+const CROP_OUT_MAX = 1400;
 
 function fmtDate(d){
   const [y,m,day] = d.split('-');
@@ -486,56 +489,69 @@ function todayStr(){
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
-function showToast(msg){
+function showToast(msg, duration){
   clearTimeout(toastTimer);
   let t = document.getElementById('toast');
   if(!t){ t = document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
   t.textContent = msg;
   t.style.display='block';
-  toastTimer = setTimeout(()=>{ t.style.display='none'; }, 1800);
+  toastTimer = setTimeout(()=>{ t.style.display='none'; }, duration || 1800);
 }
 
-/* ---- IndexedDB storage (works when this file is opened directly in a browser) ---- */
+/* ---- IndexedDB storage ---- */
 const DB_NAME = 'change-diary-db';
 const STORE = 'kv';
 let dbPromise = null;
+
+function withTimeout(promise, ms, message){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      e => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 function openDB(){
   if(dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject)=>{
+  const attempt = withTimeout(new Promise((resolve, reject)=>{
     if(!window.indexedDB){ reject(new Error('此浏览器不支持本地存储')); return; }
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-  });
+  }), 6000, '本地存储初始化超时，可能是浏览器处于隐私/无痕模式或限制了存储权限，请换成普通浏览模式后重试');
+  attempt.catch(()=>{ dbPromise = null; });
+  dbPromise = attempt;
   return dbPromise;
 }
 async function idbGet(key){
   const db = await openDB();
-  return new Promise((resolve, reject)=>{
+  return withTimeout(new Promise((resolve, reject)=>{
     const tx = db.transaction(STORE, 'readonly');
     const req = tx.objectStore(STORE).get(key);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-  });
+  }), 6000, '读取本地数据超时，请重试');
 }
 async function idbSet(key, value){
   const db = await openDB();
-  return new Promise((resolve, reject)=>{
+  return withTimeout(new Promise((resolve, reject)=>{
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put(value, key);
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
-  });
+  }), 6000, '保存本地数据超时，请重试');
 }
 async function idbDelete(key){
   const db = await openDB();
-  return new Promise((resolve, reject)=>{
+  return withTimeout(new Promise((resolve, reject)=>{
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete(key);
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
-  });
+  }), 6000, '删除本地数据超时，请重试');
 }
 
 async function loadProjects(){
@@ -569,29 +585,6 @@ async function deletePhoto(projectId, date){
   try{ await idbDelete('photo:'+projectId+':'+date); }catch(e){}
 }
 
-function compressImage(file, maxDim=1000, quality=0.75){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
-        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = reader.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function loadImg(src){
   return new Promise((resolve, reject)=>{
     const img = new Image();
@@ -620,7 +613,7 @@ function dataURLtoBlob(dataUrl){
   return new Blob([bytes], { type: mime });
 }
 
-/* ---- Best-effort EXIF "date taken" reader (JPEG only; silently returns null otherwise) ---- */
+/* ---- EXIF reader ---- */
 function getStringFromView(view, start, length){
   let s = '';
   for(let i=0;i<length;i++){ s += String.fromCharCode(view.getUint8(start+i)); }
@@ -654,7 +647,7 @@ function readTiffTags(view, tiffStart, dirStart, little){
 function extractExifDate(buffer){
   try{
     const view = new DataView(buffer);
-    if(view.getUint16(0) !== 0xFFD8) return null; // not a JPEG
+    if(view.getUint16(0) !== 0xFFD8) return null;
     let offset = 2;
     const length = view.byteLength;
     while(offset + 4 <= length){
@@ -698,14 +691,26 @@ function readExifDate(file){
   });
 }
 
-function roundRectPath(ctx, x, y, w, h, r){
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.arcTo(x+w, y, x+w, y+h, r);
-  ctx.arcTo(x+w, y+h, x, y+h, r);
-  ctx.arcTo(x, y+h, x, y, r);
-  ctx.arcTo(x, y, x+w, y, r);
-  ctx.closePath();
+function enableRangeTapToSet(slider){
+  if(!slider || slider._tapToSetBound) return;
+  slider._tapToSetBound = true;
+  const setFromClientX = (clientX) => {
+    const rect = slider.getBoundingClientRect();
+    if(rect.width <= 0) return;
+    const min = parseFloat(slider.min) || 0;
+    const max = parseFloat(slider.max) || 100;
+    const step = parseFloat(slider.step) || 1;
+    let ratio = (clientX - rect.left) / rect.width;
+    ratio = Math.min(1, Math.max(0, ratio));
+    let val = min + ratio * (max - min);
+    val = Math.round(val / step) * step;
+    val = Math.min(max, Math.max(min, val));
+    if(String(val) !== slider.value){
+      slider.value = String(val);
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  };
+  slider.addEventListener('pointerdown', (e) => { setFromClientX(e.clientX); });
 }
 
 function wrapText(ctx, text, maxWidth, maxLines){
@@ -736,18 +741,12 @@ function wrapText(ctx, text, maxWidth, maxLines){
   return lines;
 }
 
-// entries: [{date, note, photo, weight, focalX}]
-// weight   - relative display-width multiplier for this photo (1 = its natural "cover" width at ROW_H)
-// focalX   - 0..1, which part of the photo's width stays visible when it's narrower than its natural cover width
-async function generateComparison(projectName, entries, orientation='horizontal', globalSize=460){
-  // Logical size follows the preview exactly; a high-DPI backing canvas keeps photos and text sharp.
-  const TITLE_H = 72, PAD = 22, RADIUS = 18;
-  const SIZE = Math.max(280, Math.round(globalSize));
-  const ratio = 0.62;
+/* 动态适应字号、无顶部留白、直角满格渲染 */
+async function generateComparison(projectName, entries, orientation='horizontal', ratio=0.62){
+  const SIZE = 640; 
   const imgs = await Promise.all(entries.map(e => e.photo ? loadImg(e.photo) : Promise.resolve(null)));
   const n = Math.max(1, entries.length);
-  // Each image is always equal-sized. In horizontal mode SIZE controls
-  // each image's width; in vertical mode SIZE controls each image's height.
+  
   let width, height;
   if(orientation === 'horizontal'){
     width = Math.max(240, Math.round(SIZE * n));
@@ -757,81 +756,107 @@ async function generateComparison(projectName, entries, orientation='horizontal'
     height = Math.max(240, Math.round(SIZE * n));
   }
 
-  const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
+  const dpr = 2;
   const logicalW = width;
-  const logicalH = height + TITLE_H + PAD;
+  const logicalH = height; // 去除顶部留白，画布高度即为图片拼图高度
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(logicalW * dpr);
   canvas.height = Math.round(logicalH * dpr);
-  canvas.style.width = logicalW + 'px';
-  canvas.style.height = logicalH + 'px';
   const ctx = canvas.getContext('2d', {alpha:false});
   ctx.scale(dpr, dpr);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  ctx.fillStyle = '#F7F8F4';
-  ctx.fillRect(0,0,logicalW,logicalH);
-  ctx.fillStyle = '#23291F';
-  ctx.font = '600 28px "Source Serif 4", Georgia, serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 20);
-
-  ctx.save();
-  roundRectPath(ctx, 0, TITLE_H, width, height, RADIUS);
-  ctx.clip();
-  entries.forEach((e,i)=>{
-    const img=imgs[i];
-    const focalX = e.focalX == null ? .5 : e.focalX;
-    const focalY = e.focalY == null ? .5 : e.focalY;
+  entries.forEach((e, i)=>{
+    const img = imgs[i];
+    const focalX = e.focalX == null ? 0.5 : e.focalX;
+    const focalY = e.focalY == null ? 0.5 : e.focalY;
     const zoom = Math.max(1, e.zoom || 1);
-    let x=0,y=0,w=width,h=height;
-    if(orientation==='horizontal'){
-      w=width/n;
-      x=i*w;
-    }else{
-      h=height/n;
-      y=i*h;
+    
+    let x = 0, y = 0, w = width, h = height;
+    if(orientation === 'horizontal'){
+      w = width / n;
+      x = i * w;
+    } else {
+      h = height / n;
+      y = i * h;
     }
+
     ctx.save();
-    ctx.beginPath(); ctx.rect(x,y+TITLE_H,w,h); ctx.clip();
+    ctx.beginPath(); 
+    ctx.rect(x, y, w, h); 
+    ctx.clip();
+
     if(img){
-      const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight) * zoom;
-      const dw=img.naturalWidth*scale, dh=img.naturalHeight*scale;
-      let dx=x+w/2-focalX*dw, dy=y+TITLE_H+h/2-focalY*dh;
-      dx=Math.min(x,Math.max(x+w-dw,dx));
-      dy=Math.min(y+TITLE_H,Math.max(y+TITLE_H+h-dh,dy));
-      ctx.drawImage(img,dx,dy,dw,dh);
-    }else{
-      ctx.fillStyle='#E4E7DF'; ctx.fillRect(x,y+TITLE_H,w,h);
+      const baseScale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+      const dw = img.naturalWidth * baseScale * zoom;
+      const dh = img.naturalHeight * baseScale * zoom;
+
+      let dx = x + (w - dw) * focalX;
+      let dy = y + (h - dh) * focalY;
+
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } else {
+      ctx.fillStyle = '#E4E7DF'; 
+      ctx.fillRect(x, y, w, h);
     }
-    const grad=orientation==='horizontal'
-      ? ctx.createLinearGradient(0,y+TITLE_H+h*.58,0,y+TITLE_H+h)
-      : ctx.createLinearGradient(x+w*.58,0,x+w,0);
-    grad.addColorStop(0,'rgba(15,17,12,0)'); grad.addColorStop(1,'rgba(15,17,12,.72)');
-    ctx.fillStyle=grad;
-    if(orientation==='horizontal') ctx.fillRect(x,y+TITLE_H+h*.52,w,h*.48);
-    else ctx.fillRect(x+w*.52,y+TITLE_H,w*.48,h);
-    const pad=16, textW=Math.max(40,w-pad*2);
-    ctx.textAlign='left'; ctx.fillStyle='#fff';
-    let ty=y+TITLE_H+h-16;
+
+    // 渐变遮罩
+    const grad = ctx.createLinearGradient(x, y + h * 0.4, x, y + h);
+    grad.addColorStop(0, 'rgba(15,17,12,0)');
+    grad.addColorStop(1, 'rgba(15,17,12,0.75)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y + h * 0.4, w, h * 0.6);
+
+    // ----------------- 根据图片大小动态计算文字尺寸 -----------------
+    const minDim = Math.min(w, h);
+    // 日期字体大小: 介于 13px 到 24px 之间，随单元格最小边长缩放
+    const dateFontSize = Math.max(13, Math.min(24, Math.round(minDim * 0.065)));
+    // 备注字体大小: 介于 11px 到 20px 之间
+    const noteFontSize = Math.max(11, Math.min(20, Math.round(dateFontSize * 0.85)));
+    
+    const pad = Math.max(8, Math.round(minDim * 0.05));
+    const textW = Math.max(30, w - pad * 2);
+    const lineSpacing = Math.round(noteFontSize * 1.3);
+
+    ctx.textAlign = 'left'; 
+    let ty = y + h - pad;
+
+    // 绘制备注
     if(e.note){
-      ctx.font='400 16px Inter, sans-serif'; ctx.fillStyle='rgba(255,255,255,.96)';
-      const lines=wrapText(ctx,e.note,textW,2);
-      for(let li=lines.length-1;li>=0;li--){ctx.fillText(lines[li],x+pad,ty);ty-=22;}
+      ctx.font = `400 ${noteFontSize}px Inter, sans-serif`; 
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      const lines = wrapText(ctx, e.note, textW, 2);
+      for(let li = lines.length - 1; li >= 0; li--){
+        ctx.fillText(lines[li], x + pad, ty);
+        ty -= lineSpacing;
+      }
+      ty -= Math.round(pad * 0.2); // 备注与日期的间距
     }
-    ctx.font='700 18px Inter, sans-serif'; ctx.fillStyle='#fff';
-    ctx.fillText(fmtDateShort(e.date),x+pad,ty);
+
+    // 绘制日期
+    ctx.font = `700 ${dateFontSize}px Inter, sans-serif`; 
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(fmtDateShort(e.date), x + pad, ty);
+
     ctx.restore();
-    if(i<n-1){
-      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5; ctx.beginPath();
-      if(orientation==='horizontal'){ctx.moveTo(x+w,y+TITLE_H);ctx.lineTo(x+w,y+TITLE_H+h);}
-      else{ctx.moveTo(x,y+TITLE_H+h);ctx.lineTo(x+w,y+TITLE_H+h);}
+
+    // 白色分割线
+    if(i < n - 1){
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; 
+      ctx.lineWidth = Math.max(1.5, Math.round(minDim * 0.006)); 
+      ctx.beginPath();
+      if(orientation === 'horizontal'){
+        ctx.moveTo(x + w, y);
+        ctx.lineTo(x + w, y + h);
+      } else {
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w, y + h);
+      }
       ctx.stroke();
     }
   });
-  ctx.restore();
+
   return canvas.toDataURL('image/png');
 }
 
@@ -934,7 +959,7 @@ function renderProject(proj, meta){
 
 function renderCompareCustomize(proj, meta){
   const orientation = compareCustom.orientation || 'horizontal';
-  const size = compareCustom.globalSize || 460;
+  const ratio = compareCustom.ratio ?? 0.62;
   const strip = compareCustom.map(c => `
     <div class="strip-item" data-strip="${c.date}">
       <img data-strip-img="${c.date}" src="" alt="">
@@ -950,9 +975,13 @@ function renderCompareCustomize(proj, meta){
         <button class="orientation-btn ${orientation==='vertical'?'active':''}" data-orientation="vertical">纵向排列</button>
       </div>
       <div class="global-size">
-        <div class="global-size-head"><label>${orientation==='horizontal'?'图片宽度':'图片高度'}</label><strong id="global-size-value">${size}px</strong></div>
-        <input type="range" id="global-size" min="180" max="900" step="10" value="${size}">
-        <div class="touch-hint">所有图片等分；${orientation==='horizontal'?'调整每张图片的宽度':'调整每张图片的高度'}，预览会实时同步。</div>
+        <div class="global-size-head"><label>照片形状</label></div>
+        <div class="shape-row">
+          <span class="shape-tag">宽扁</span>
+          <input type="range" id="cell-ratio" min="0.35" max="1.15" step="0.01" value="${ratio}">
+          <span class="shape-tag">瘦高</span>
+        </div>
+        <div class="touch-hint">左右拖动调整每张照片的宽高比例，拼图会实时跟着变化。</div>
       </div>
       <div class="cust-preview-wrap"><div class="cust-preview-stage"><div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div></div></div>
       <div class="touch-hint" style="margin:0 2px 14px;">点击图片后可拖动调整露出位置，也可以双指缩放。</div>
@@ -1031,6 +1060,8 @@ function renderModal(){
       const saveBtn = root.querySelector('#np-save');
       saveBtn.disabled = true;
       saveBtn.textContent = isEdit ? '保存中…' : '创建中…';
+      const prevName = isEdit ? existing.name : null;
+      const prevIcon = isEdit ? existing.icon : null;
       try{
         if(isEdit){
           existing.name = name;
@@ -1047,7 +1078,9 @@ function renderModal(){
           render();
         }
       }catch(e){
-        showToast((isEdit?'保存':'创建')+'失败：' + e.message);
+        if(isEdit){ existing.name = prevName; existing.icon = prevIcon; }
+        else { projects.shift(); }
+        showToast((isEdit?'保存':'创建')+'失败：' + e.message, 4000);
         saveBtn.disabled = false;
         saveBtn.textContent = isEdit ? '保存' : '创建';
       }
@@ -1133,7 +1166,6 @@ function renderModal(){
         const meta = await loadMeta(projectId);
         const oldDate = entryDraft.editingDate;
         if(oldDate && oldDate !== date){
-          // date changed while editing: move the record to the new key
           const oldIdx = meta.findIndex(m=>m.date===oldDate);
           if(oldIdx>=0) meta.splice(oldIdx,1);
           await deletePhoto(projectId, oldDate);
@@ -1203,10 +1235,11 @@ function renderModal(){
     const imgEl = root.querySelector('#crop-img');
     const boxEl = root.querySelector('#crop-box');
     const zoomSlider = root.querySelector('#crop-zoom');
+    enableRangeTapToSet(zoomSlider);
 
     let natW=0, natH=0, scale0=1, z=1, panX=0, panY=0;
     let box = { x:0, y:0, w:VW, h:VH };
-    let ratioKey = 'orig', aspectValue = null; // aspectValue null => free
+    let ratioKey = 'orig', aspectValue = null;
 
     function imageRect(){
       const scale = scale0*z;
@@ -1232,7 +1265,7 @@ function renderModal(){
     function applyRatio(){
       if(!natW) return;
       const aspect = ratioKey==='orig' ? (natW/natH) : aspectValue;
-      if(aspect == null) return; // free: leave box as-is
+      if(aspect == null) return;
       const cx = box.x+box.w/2, cy = box.y+box.h/2;
       const r = imageRect();
       let w = Math.min(box.w, r.iw), h = w/aspect;
@@ -1277,7 +1310,7 @@ function renderModal(){
       paint();
     };
 
-    let mode = null; // 'move' | 'resize' | 'pan'
+    let mode = null;
     let startPX=0, startPY=0, startBox=null, startPan=null, corner=null;
 
     stage.addEventListener('pointerdown', (e) => {
@@ -1442,7 +1475,6 @@ function bindHome(){
 function bindProject(proj, meta){
   document.getElementById('back-btn').onclick = () => { view = {name:'home'}; compareMode=false; selected=new Set(); render(); };
 
-  // load thumbnails async
   meta.forEach(async (e) => {
     const photo = await loadPhoto(proj.id, e.date);
     const imgEl = document.querySelector(`[data-thumb="${e.date}"]`);
@@ -1496,172 +1528,192 @@ function bindProject(proj, meta){
 }
 
 async function bindCompareCustomize(proj, meta){
-  const strip=document.getElementById('cust-strip');
-  const sizeSlider=document.getElementById('global-size');
-  const sizeValue=document.getElementById('global-size-value');
-  compareCustom.orientation=compareCustom.orientation||'horizontal';
-  compareCustom.globalSize=compareCustom.globalSize||460;
-  compareCustom.forEach(c=>{
-    c.focalX=c.focalX??.5;c.focalY=c.focalY??.5;c.zoom=c.zoom??1;
+  const strip = document.getElementById('cust-strip');
+  const ratioSlider = document.getElementById('cell-ratio');
+  enableRangeTapToSet(ratioSlider);
+  compareCustom.orientation = compareCustom.orientation || 'horizontal';
+  compareCustom.ratio = compareCustom.ratio ?? 0.62;
+  compareCustom.forEach(c => {
+    c.focalX = c.focalX ?? .5; c.focalY = c.focalY ?? .5; c.zoom = c.zoom ?? 1;
   });
-  let activeDate=compareCustom.activeDate||compareCustom[0]?.date||null;
-  compareCustom.activeDate=activeDate;
+  let activeDate = compareCustom.activeDate || compareCustom[0]?.date || null;
+  compareCustom.activeDate = activeDate;
 
-  document.getElementById('back-btn').onclick=()=>{
-    view={name:'project',id:proj.id};compareMode=true;render();
+  document.getElementById('back-btn').onclick = () => {
+    view = {name:'project', id:proj.id}; compareMode=true; render();
   };
 
   function setActive(date){
-    activeDate=date;compareCustom.activeDate=date;
-    document.querySelectorAll('.strip-item').forEach(el=>el.classList.toggle('active-item',el.dataset.strip===date));
+    activeDate = date; compareCustom.activeDate = date;
+    document.querySelectorAll('.strip-item').forEach(el => el.classList.toggle('active-item', el.dataset.strip===date));
   }
 
   function updatePreviewLayout(){
-    const vertical=compareCustom.orientation==='vertical';
-    const size=Math.round(compareCustom.globalSize||460);
-    const n=Math.max(1,compareCustom.length);
-    const ratio=0.62;
-    const stage=document.querySelector('.cust-preview-stage');
-    const wrap=document.querySelector('.cust-preview-wrap');
-    strip.classList.toggle('vertical',vertical);
+    const vertical = compareCustom.orientation === 'vertical';
+    const ratio = compareCustom.ratio ?? 0.62;
+    const n = Math.max(1, compareCustom.length);
+    const stage = document.querySelector('.cust-preview-stage');
+    const wrap = document.querySelector('.cust-preview-wrap');
+    strip.classList.toggle('vertical', vertical);
 
-    // 滑块控制每张图片的实际尺寸；预览区会把整个拼图按比例缩小，
-    // 确保横向排列时所有图片一次性完整显示，不再出现横向滚动条。
-    let rawW, rawH, itemW, itemH;
+    const availableW = Math.max(240, (wrap?.clientWidth || 420) - 2);
+    const maxTotalH = 440;
+    let itemW, itemH, rawW, rawH;
+
     if(vertical){
-      itemW=Math.max(180,Math.round(size*ratio));
-      itemH=Math.max(180,size);
-      rawW=itemW;
-      rawH=itemH*n;
-    }else{
-      itemW=Math.max(180,size);
-      itemH=Math.max(180,Math.round(size*ratio));
-      rawW=itemW*n;
-      rawH=itemH;
+      itemW = availableW;
+      itemH = Math.round(itemW * ratio);
+      rawW = itemW; rawH = itemH * n;
+      if(rawH > maxTotalH){
+        const s = maxTotalH / rawH;
+        itemW = Math.max(60, Math.round(itemW * s));
+        itemH = Math.round(itemW * ratio);
+        rawW = itemW; rawH = itemH * n;
+      }
+    } else {
+      itemW = Math.floor(availableW / n);
+      itemH = Math.round(itemW * ratio);
+      rawW = itemW * n; rawH = itemH;
+      if(rawH > maxTotalH){
+        const s = maxTotalH / rawH;
+        itemH = Math.max(60, Math.round(itemH * s));
+        itemW = Math.round(itemH / ratio);
+        rawW = itemW * n; rawH = itemH;
+      }
     }
 
-    const availableW=Math.max(1,(wrap?.clientWidth||420)-2);
-    const maxPreviewH=420;
-    const fitScale=Math.min(1,availableW/rawW,maxPreviewH/rawH);
-    const displayH=rawH*fitScale;
-
-    strip.style.width=rawW+'px';
-    strip.style.height=rawH+'px';
-    strip.style.transform=`scale(${fitScale})`;
+    strip.style.width = rawW + 'px';
+    strip.style.height = rawH + 'px';
+    strip.style.transform = 'none';
 
     if(stage){
-      stage.style.height=Math.max(1,Math.ceil(displayH))+'px';
-      stage.style.minHeight='0';
+      stage.style.height = Math.max(1, rawH) + 'px';
+      stage.style.minHeight = '0';
     }
 
-    compareCustom.forEach(c=>{
-      const el=strip.querySelector(`[data-strip="${c.date}"]`);
+    compareCustom.forEach(c => {
+      const el = strip.querySelector(`[data-strip="${c.date}"]`);
       if(el){
-        el.style.width=itemW+'px';
-        el.style.height=itemH+'px';
+        el.style.width = itemW + 'px';
+        el.style.height = itemH + 'px';
       }
     });
 
-    sizeValue.textContent=size+'px';
-    sizeSlider.value=String(size);
+    ratioSlider.value = String(ratio);
   }
 
   function updateImage(c){
-    const img=document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(!img)return;
-    img.style.objectPosition=`${Math.round((c.focalX??.5)*100)}% ${Math.round((c.focalY??.5)*100)}%`;
-    img.style.transform=`scale(${c.zoom??1})`;
+    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(!img) return;
+    
+    const px = Math.round((c.focalX ?? 0.5) * 100);
+    const py = Math.round((c.focalY ?? 0.5) * 100);
+    img.style.objectFit = 'cover';
+    img.style.objectPosition = `${px}% ${py}%`;
+    img.style.transform = `scale(${c.zoom ?? 1})`;
   }
 
-  await Promise.all(compareCustom.map(async c=>{
-    c.photo=await loadPhoto(proj.id,c.date);
-    const img=document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(img&&c.photo)img.src=c.photo;
+  await Promise.all(compareCustom.map(async c => {
+    c.photo = await loadPhoto(proj.id, c.date);
+    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(img && c.photo) img.src = c.photo;
     updateImage(c);
   }));
+
   updatePreviewLayout();
   setActive(activeDate);
 
-  document.querySelectorAll('[data-orientation]').forEach(btn=>{
-    btn.onclick=()=>{
-      compareCustom.orientation=btn.dataset.orientation;
-      document.querySelectorAll('[data-orientation]').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('[data-orientation]').forEach(btn => {
+    btn.onclick = () => {
+      compareCustom.orientation = btn.dataset.orientation;
+      document.querySelectorAll('[data-orientation]').forEach(b => b.classList.toggle('active', b === btn));
       updatePreviewLayout();
-      const label=document.querySelector('.global-size-head label');
-      if(label) label.textContent=compareCustom.orientation==='horizontal'?'图片宽度':'图片高度';
-      const hint=document.querySelector('.global-size .touch-hint');
-      if(hint) hint.textContent='所有图片等分；'+(compareCustom.orientation==='horizontal'?'调整每张图片的宽度':'调整每张图片的高度')+'，预览会实时同步。';
     };
   });
 
-  sizeSlider.oninput=()=>{
-    compareCustom.globalSize=parseFloat(sizeSlider.value);
+  ratioSlider.oninput = () => {
+    compareCustom.ratio = parseFloat(ratioSlider.value);
     updatePreviewLayout();
   };
 
-
   window.addEventListener('resize', updatePreviewLayout);
 
-  strip.addEventListener('click',e=>{
-    const item=e.target.closest('.strip-item');if(item)setActive(item.dataset.strip);
+  strip.addEventListener('click', e => {
+    const item = e.target.closest('.strip-item'); 
+    if(item) setActive(item.dataset.strip);
   });
 
-  let drag=null,pinch=null;
-  const pointers=new Map();
+  let drag = null, pinch = null;
+  const pointers = new Map();
 
-  strip.addEventListener('pointerdown',e=>{
-    const item=e.target.closest('.strip-item');if(!item)return;
-    const date=item.dataset.strip,c=compareCustom.find(x=>x.date===date);if(!c)return;
+  strip.addEventListener('pointerdown', e => {
+    const item = e.target.closest('.strip-item'); if(!item) return;
+    const date = item.dataset.strip, c = compareCustom.find(x => x.date === date); if(!c) return;
     setActive(date);
-    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,date});
-    if(pointers.size===2){
-      const pts=[...pointers.values()],a=pts[0],b=pts[1];
-      const target=compareCustom.find(x=>x.date===(a.date===b.date?a.date:date))||c;
-      pinch={date:target.date,startDist:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),startZoom:target.zoom||1};
-      drag=null;
-    }else drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
-    try{strip.setPointerCapture(e.pointerId)}catch(err){}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, date });
+    if(pointers.size === 2){
+      const pts = [...pointers.values()], a = pts[0], b = pts[1];
+      const target = compareCustom.find(x => x.date === (a.date === b.date ? a.date : date)) || c;
+      pinch = { date: target.date, startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), startZoom: target.zoom || 1 };
+      drag = null;
+    } else {
+      drag = { id: e.pointerId, date, startX: e.clientX, startY: e.clientY, startFX: c.focalX, startFY: c.focalY };
+    }
+    try{ strip.setPointerCapture(e.pointerId); }catch(err){}
     e.preventDefault();
   });
 
-  strip.addEventListener('pointermove',e=>{
-    const p=pointers.get(e.pointerId);if(p){p.x=e.clientX;p.y=e.clientY;}
-    if(pinch&&pointers.size>=2){
-      const pts=[...pointers.values()],a=pts[0],b=pts[1];
-      const dist=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y));
-      const c=compareCustom.find(x=>x.date===pinch.date);
-      if(c){c.zoom=Math.max(1,Math.min(3.5,pinch.startZoom*(dist/pinch.startDist)));updateImage(c);}
-      e.preventDefault();return;
+  strip.addEventListener('pointermove', e => {
+    const p = pointers.get(e.pointerId); if(p){ p.x = e.clientX; p.y = e.clientY; }
+    if(pinch && pointers.size >= 2){
+      const pts = [...pointers.values()], a = pts[0], b = pts[1];
+      const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const c = compareCustom.find(x => x.date === pinch.date);
+      if(c){ 
+        c.zoom = Math.max(1, Math.min(3.5, pinch.startZoom * (dist / pinch.startDist))); 
+        updateImage(c); 
+      }
+      e.preventDefault(); return;
     }
-    if(!drag||drag.id!==e.pointerId)return;
-    const c=compareCustom.find(x=>x.date===drag.date);if(!c)return;
-    const item=strip.querySelector(`[data-strip="${drag.date}"]`);if(!item)return;
-    const rect=item.getBoundingClientRect();
-    c.focalX=Math.max(0,Math.min(1,drag.startFX-(e.clientX-drag.startX)/Math.max(1,rect.width)));
-    c.focalY=Math.max(0,Math.min(1,drag.startFY-(e.clientY-drag.startY)/Math.max(1,rect.height)));
-    updateImage(c);e.preventDefault();
+    if(!drag || drag.id !== e.pointerId) return;
+    const c = compareCustom.find(x => x.date === drag.date); if(!c) return;
+    const item = strip.querySelector(`[data-strip="${drag.date}"]`); if(!item) return;
+    const rect = item.getBoundingClientRect();
+    
+    c.focalX = Math.max(0, Math.min(1, drag.startFX - (e.clientX - drag.startX) / Math.max(1, rect.width)));
+    c.focalY = Math.max(0, Math.min(1, drag.startFY - (e.clientY - drag.startY) / Math.max(1, rect.height)));
+    
+    updateImage(c); 
+    e.preventDefault();
   });
 
-  const endPointer=e=>{
-    pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(drag?.id===e.pointerId)drag=null;
+  const endPointer = e => {
+    pointers.delete(e.pointerId); 
+    if(pointers.size < 2) pinch = null; 
+    if(drag?.id === e.pointerId) drag = null;
   };
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>strip.addEventListener(ev,endPointer));
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => strip.addEventListener(ev, endPointer));
 
-  document.getElementById('cust-gen-btn').onclick=async()=>{
-    const btn=document.getElementById('cust-gen-btn');btn.disabled=true;btn.textContent='生成中…';
+  document.getElementById('cust-gen-btn').onclick = async () => {
+    const btn = document.getElementById('cust-gen-btn'); 
+    btn.disabled = true; 
+    btn.textContent = '生成中…';
     try{
-      const entries=compareCustom.map(c=>{
-        const m=meta.find(x=>x.date===c.date);
-        return {date:c.date,note:m?m.note:'',photo:c.photo,focalX:c.focalX,focalY:c.focalY,zoom:c.zoom||1};
+      const entries = compareCustom.map(c => {
+        const m = meta.find(x => x.date === c.date);
+        return { date: c.date, note: m ? m.note : '', photo: c.photo, focalX: c.focalX, focalY: c.focalY, zoom: c.zoom || 1 };
       });
-      const image=await generateComparison(proj.name,entries,compareCustom.orientation,compareCustom.globalSize);
-      view={name:'compareResult',id:proj.id,image,orientation:compareCustom.orientation};
-      compareMode=false;selected=new Set();compareCustom=[];render();
+      const image = await generateComparison(proj.name, entries, compareCustom.orientation, compareCustom.ratio);
+      view = { name: 'compareResult', id: proj.id, image, orientation: compareCustom.orientation };
+      compareMode = false; selected = new Set(); compareCustom = []; render();
     }catch(e){
-      showToast('生成失败：'+e.message);btn.disabled=false;btn.textContent='生成对比图';
+      showToast('生成失败：' + e.message); 
+      btn.disabled = false; 
+      btn.textContent = '生成对比图';
     }
   };
 }
+
 function bindCompareResult(){
   document.getElementById('back-btn').onclick = () => { view={name:'project',id:view.id}; render(); };
   document.getElementById('result-back-btn').onclick = () => {
