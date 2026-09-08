@@ -356,7 +356,6 @@
 <div class="app" id="app"></div>
 
 <script>
-const S = window.storage;
 let projects = [];
 let view = { name: 'home' };           // {name:'home'} | {name:'project', id} | {name:'compareResult', id, image}
 let compareMode = false;
@@ -385,36 +384,78 @@ function showToast(msg){
   toastTimer = setTimeout(()=>{ t.style.display='none'; }, 1800);
 }
 
+/* ---- IndexedDB storage (works when this file is opened directly in a browser) ---- */
+const DB_NAME = 'change-diary-db';
+const STORE = 'kv';
+let dbPromise = null;
+function openDB(){
+  if(dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject)=>{
+    if(!window.indexedDB){ reject(new Error('此浏览器不支持本地存储')); return; }
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+async function idbGet(key){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDelete(key){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 async function loadProjects(){
   try{
-    const r = await S.get('projects');
-    projects = r ? JSON.parse(r.value) : [];
-  }catch(e){ projects = []; }
+    const r = await idbGet('projects');
+    projects = r || [];
+  }catch(e){ projects = []; showToast('本地存储不可用：' + e.message); }
 }
 async function saveProjects(){
-  await S.set('projects', JSON.stringify(projects));
+  await idbSet('projects', projects);
 }
 async function loadMeta(projectId){
   try{
-    const r = await S.get('meta:'+projectId);
-    const list = r ? JSON.parse(r.value) : [];
-    return list.sort((a,b)=> b.date.localeCompare(a.date));
+    const list = await idbGet('meta:'+projectId);
+    return (list || []).sort((a,b)=> b.date.localeCompare(a.date));
   }catch(e){ return []; }
 }
 async function saveMeta(projectId, list){
-  await S.set('meta:'+projectId, JSON.stringify(list));
+  await idbSet('meta:'+projectId, list);
 }
 async function savePhoto(projectId, date, dataUrl){
-  await S.set('photo:'+projectId+':'+date, dataUrl);
+  await idbSet('photo:'+projectId+':'+date, dataUrl);
 }
 async function loadPhoto(projectId, date){
   try{
-    const r = await S.get('photo:'+projectId+':'+date);
-    return r ? r.value : null;
+    const r = await idbGet('photo:'+projectId+':'+date);
+    return r || null;
   }catch(e){ return null; }
 }
 async function deletePhoto(projectId, date){
-  try{ await S.delete('photo:'+projectId+':'+date); }catch(e){}
+  try{ await idbDelete('photo:'+projectId+':'+date); }catch(e){}
 }
 
 function compressImage(file, maxDim=1000, quality=0.75){
@@ -667,7 +708,7 @@ function renderModal(){
   document.body.appendChild(root);
 
   if(modal.type === 'newProject'){
-    const icons = ['📷','🦷','😊','🧍','💪','📝'];
+    const suggestions = ['📷','🦷','😊','🧍','💪','📝','👁️','🖐️','🦵','💇'];
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
@@ -677,9 +718,10 @@ function renderModal(){
             <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态">
           </div>
           <div class="field">
-            <label>图标</label>
-            <div class="emoji-row">
-              ${icons.map((ic,i)=>`<button data-icon="${ic}" class="${i===0?'sel':''}">${ic}</button>`).join('')}
+            <label>图标（点击输入框可用手机自带的表情键盘，输入任意 emoji）</label>
+            <input type="text" id="np-icon" value="📷" maxlength="4" style="width:64px;height:52px;font-size:26px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);">
+            <div class="emoji-row" style="margin-top:10px;">
+              ${suggestions.map(ic=>`<button type="button" data-icon="${ic}">${ic}</button>`).join('')}
             </div>
           </div>
           <div class="sheet-actions">
@@ -689,25 +731,31 @@ function renderModal(){
         </div>
       </div>
     `;
-    let selIcon = icons[0];
+    const iconInput = root.querySelector('#np-icon');
     root.querySelectorAll('[data-icon]').forEach(btn=>{
-      btn.onclick = () => {
-        root.querySelectorAll('[data-icon]').forEach(b=>b.classList.remove('sel'));
-        btn.classList.add('sel');
-        selIcon = btn.dataset.icon;
-      };
+      btn.onclick = () => { iconInput.value = btn.dataset.icon; };
     });
     root.querySelector('#np-cancel').onclick = () => { modal=null; render(); };
     root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
     root.querySelector('#np-save').onclick = async () => {
       const name = root.querySelector('#np-name').value.trim();
       if(!name){ showToast('请输入项目名称'); return; }
-      const proj = { id: 'proj_'+Date.now(), name, icon: selIcon, createdAt: Date.now(), count:0, lastDate:null };
-      projects.unshift(proj);
-      await saveProjects();
-      modal = null;
-      view = { name:'project', id: proj.id };
-      render();
+      const icon = iconInput.value.trim() || '📷';
+      const saveBtn = root.querySelector('#np-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = '创建中…';
+      try{
+        const proj = { id: 'proj_'+Date.now(), name, icon, createdAt: Date.now(), count:0, lastDate:null };
+        projects.unshift(proj);
+        await saveProjects();
+        modal = null;
+        view = { name:'project', id: proj.id };
+        render();
+      }catch(e){
+        showToast('创建失败：' + e.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '创建';
+      }
     };
   }
 
@@ -722,11 +770,15 @@ function renderModal(){
           </div>
           <div class="field">
             <label>照片</label>
-            <div class="photo-picker" id="ae-picker">
-              <div id="ae-picker-placeholder">点击拍照或从相册选择</div>
-              <img id="ae-preview" style="display:none;">
+            <div class="photo-picker" id="ae-picker-preview" style="display:none;margin-bottom:10px;">
+              <img id="ae-preview">
             </div>
-            <input type="file" id="ae-file" accept="image/*" capture="environment" style="display:none;">
+            <div style="display:flex;gap:10px;">
+              <button type="button" class="chip-btn" id="ae-camera-btn">📷 拍照</button>
+              <button type="button" class="chip-btn" id="ae-gallery-btn">🖼️ 从相册选择</button>
+            </div>
+            <input type="file" id="ae-file-camera" accept="image/*" capture="environment" style="display:none;">
+            <input type="file" id="ae-file-gallery" accept="image/*" style="display:none;">
           </div>
           <div class="field">
             <label>备注（可选）</label>
@@ -740,36 +792,50 @@ function renderModal(){
       </div>
     `;
     let compressedData = null;
-    root.querySelector('#ae-picker').onclick = () => root.querySelector('#ae-file').click();
-    root.querySelector('#ae-file').onchange = async (e) => {
-      const file = e.target.files[0];
+    const handleFile = async (file) => {
       if(!file) return;
       showToast('正在处理照片…');
-      compressedData = await compressImage(file);
-      const img = root.querySelector('#ae-preview');
-      img.src = compressedData;
-      img.style.display = 'block';
-      root.querySelector('#ae-picker-placeholder').style.display = 'none';
-      root.querySelector('#ae-save').disabled = false;
+      try{
+        compressedData = await compressImage(file);
+        const img = root.querySelector('#ae-preview');
+        img.src = compressedData;
+        root.querySelector('#ae-picker-preview').style.display = 'block';
+        root.querySelector('#ae-save').disabled = false;
+      }catch(e){
+        showToast('照片处理失败，请换一张试试');
+      }
     };
+    root.querySelector('#ae-camera-btn').onclick = () => root.querySelector('#ae-file-camera').click();
+    root.querySelector('#ae-gallery-btn').onclick = () => root.querySelector('#ae-file-gallery').click();
+    root.querySelector('#ae-file-camera').onchange = (e) => handleFile(e.target.files[0]);
+    root.querySelector('#ae-file-gallery').onchange = (e) => handleFile(e.target.files[0]);
     root.querySelector('#ae-cancel').onclick = () => { modal=null; render(); };
     root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
     root.querySelector('#ae-save').onclick = async () => {
       const date = root.querySelector('#ae-date').value;
       const note = root.querySelector('#ae-note').value.trim();
       if(!date || !compressedData){ showToast('请选择日期和照片'); return; }
-      const projectId = modal.projectId;
-      const meta = await loadMeta(projectId);
-      const idx = meta.findIndex(m=>m.date===date);
-      if(idx>=0){ meta[idx].note = note; } else { meta.push({date, note}); }
-      await saveMeta(projectId, meta);
-      await savePhoto(projectId, date, compressedData);
-      const proj = projects.find(p=>p.id===projectId);
-      proj.count = meta.length;
-      proj.lastDate = meta.reduce((a,b)=> a>b.date?a:b.date, meta[0].date);
-      await saveProjects();
-      modal = null;
-      render();
+      const saveBtn = root.querySelector('#ae-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = '保存中…';
+      try{
+        const projectId = modal.projectId;
+        const meta = await loadMeta(projectId);
+        const idx = meta.findIndex(m=>m.date===date);
+        if(idx>=0){ meta[idx].note = note; } else { meta.push({date, note}); }
+        await saveMeta(projectId, meta);
+        await savePhoto(projectId, date, compressedData);
+        const proj = projects.find(p=>p.id===projectId);
+        proj.count = meta.length;
+        proj.lastDate = meta.reduce((a,b)=> a>b.date?a:b.date, meta[0].date);
+        await saveProjects();
+        modal = null;
+        render();
+      }catch(e){
+        showToast('保存失败：' + e.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存';
+      }
     };
   }
 
@@ -792,7 +858,7 @@ function renderModal(){
       const id = modal.id;
       const meta = await loadMeta(id);
       for(const e of meta){ await deletePhoto(id, e.date); }
-      try{ const r = await S.get('meta:'+id); if(r) await S.delete('meta:'+id); }catch(e){}
+      try{ await idbDelete('meta:'+id); }catch(e){}
       projects = projects.filter(p=>p.id!==id);
       await saveProjects();
       modal = null;
