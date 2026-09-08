@@ -431,10 +431,16 @@
   .global-size-head strong{font-size:13px;color:var(--ink);}
   .global-size input[type=range]{width:100%;}
   .touch-hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.45;}
-  .cust-preview-wrap{width:100%;overflow:hidden;border-radius:16px;margin-bottom:14px;background:var(--surface-alt);}
-  .cust-strip{display:flex;width:100%;aspect-ratio:1.6129;height:auto;border-radius:16px;overflow:hidden;background:var(--surface-alt);border:1px solid var(--border);touch-action:none;user-select:none;}
-  .cust-strip.vertical{aspect-ratio:.62;height:auto;display:flex;flex-direction:column;}
-  .cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:1 1 0;touch-action:none;background:#E4E7DF;}
+  .cust-preview-wrap{width:100%;overflow:hidden;border-radius:16px;margin-bottom:14px;background:var(--surface-alt);border:1px solid var(--border);-webkit-overflow-scrolling:touch;}
+  .cust-preview-stage{width:100%;display:flex;overflow:hidden;justify-content:center;align-items:flex-start;padding:0;}
+  .cust-strip{display:flex;width:100%;height:auto;transform-origin:top center;border-radius:16px;overflow:hidden;background:var(--surface-alt);touch-action:none;user-select:none;flex:none;}
+  .cust-strip.vertical{display:flex;flex-direction:column;}
+  .cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:0 0 auto;touch-action:none;background:#E4E7DF;}
+  .cust-size-control{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 15px;margin-bottom:14px;}
+  .cust-size-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;}
+  .cust-size-head label{font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .cust-size-head strong{font-size:13px;color:var(--ink);}
+  .cust-size-control input[type=range]{width:100%;}
   .cust-strip .strip-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;transform-origin:center center;}
   .cust-strip .strip-item.active-item{outline:3px solid var(--accent);outline-offset:-3px;z-index:2;}
   .cust-strip .strip-item::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(15,17,12,.22));opacity:0;transition:opacity .15s;}
@@ -740,13 +746,15 @@ async function generateComparison(projectName, entries, orientation='horizontal'
   const ratio = 0.62;
   const imgs = await Promise.all(entries.map(e => e.photo ? loadImg(e.photo) : Promise.resolve(null)));
   const n = Math.max(1, entries.length);
+  // Each image is always equal-sized. In horizontal mode SIZE controls
+  // each image's width; in vertical mode SIZE controls each image's height.
   let width, height;
   if(orientation === 'horizontal'){
-    width = SIZE;
-    height = Math.max(240, Math.round(width * ratio));
+    width = Math.max(240, Math.round(SIZE * n));
+    height = Math.max(240, Math.round(SIZE * ratio));
   }else{
-    height = SIZE;
-    width = Math.max(240, Math.round(height * ratio));
+    width = Math.max(240, Math.round(SIZE * ratio));
+    height = Math.max(240, Math.round(SIZE * n));
   }
 
   const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
@@ -779,8 +787,13 @@ async function generateComparison(projectName, entries, orientation='horizontal'
     const focalY = e.focalY == null ? .5 : e.focalY;
     const zoom = Math.max(1, e.zoom || 1);
     let x=0,y=0,w=width,h=height;
-    if(orientation==='horizontal'){ x=i*(width/n); w=width/n; }
-    else { y=i*(height/n); h=height/n; }
+    if(orientation==='horizontal'){
+      w=width/n;
+      x=i*w;
+    }else{
+      h=height/n;
+      y=i*h;
+    }
     ctx.save();
     ctx.beginPath(); ctx.rect(x,y+TITLE_H,w,h); ctx.clip();
     if(img){
@@ -937,17 +950,16 @@ function renderCompareCustomize(proj, meta){
         <button class="orientation-btn ${orientation==='vertical'?'active':''}" data-orientation="vertical">纵向排列</button>
       </div>
       <div class="global-size">
-        <div class="global-size-head"><label>${orientation==='horizontal'?'展示宽度':'展示高度'}</label><strong id="global-size-value">${size}px</strong></div>
-        <input type="range" id="global-size" min="280" max="900" step="10" value="${size}">
-        <div class="touch-hint">拼图整体${orientation==='horizontal'?'高度':'宽度'}，每张图片会自动等分。预览区可直接用手指拖动，调整当前图片露出的位置。</div>
+        <div class="global-size-head"><label>${orientation==='horizontal'?'图片宽度':'图片高度'}</label><strong id="global-size-value">${size}px</strong></div>
+        <input type="range" id="global-size" min="180" max="900" step="10" value="${size}">
+        <div class="touch-hint">所有图片等分；${orientation==='horizontal'?'调整每张图片的宽度':'调整每张图片的高度'}，预览会实时同步。</div>
       </div>
-      <div class="cust-preview-wrap"><div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div></div>
-      <div class="touch-hint" style="margin:0 2px 14px;">点击一张图后拖动：左右拖动调整横向露出范围，上下拖动调整纵向露出范围。</div>
+      <div class="cust-preview-wrap"><div class="cust-preview-stage"><div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div></div></div>
+      <div class="touch-hint" style="margin:0 2px 14px;">点击图片后可拖动调整露出位置，也可以双指缩放。</div>
       <button class="fab" id="cust-gen-btn" style="position:static;transform:none;width:100%;max-width:none;margin-top:4px;">生成对比图</button>
     </main>
   `;
 }
-
 function renderCompareResult(){
   return `
     <header class="topbar">
@@ -1484,132 +1496,159 @@ function bindProject(proj, meta){
 }
 
 async function bindCompareCustomize(proj, meta){
-  const strip = document.getElementById('cust-strip');
-  const sizeSlider = document.getElementById('global-size');
-  const sizeValue = document.getElementById('global-size-value');
-  let activeDate = compareCustom[0]?.date || null;
+  const strip=document.getElementById('cust-strip');
+  const sizeSlider=document.getElementById('global-size');
+  const sizeValue=document.getElementById('global-size-value');
+  compareCustom.orientation=compareCustom.orientation||'horizontal';
+  compareCustom.globalSize=compareCustom.globalSize||460;
+  compareCustom.forEach(c=>{
+    c.focalX=c.focalX??.5;c.focalY=c.focalY??.5;c.zoom=c.zoom??1;
+  });
+  let activeDate=compareCustom.activeDate||compareCustom[0]?.date||null;
+  compareCustom.activeDate=activeDate;
 
-  compareCustom.orientation = compareCustom.orientation || 'horizontal';
-  compareCustom.globalSize = compareCustom.globalSize || 460;
-
-  document.getElementById('back-btn').onclick = () => {
-    view = { name:'project', id: proj.id }; compareMode = true; render();
+  document.getElementById('back-btn').onclick=()=>{
+    view={name:'project',id:proj.id};compareMode=true;render();
   };
 
-  function setActive(date, on=true){
-    activeDate = date;
-    document.querySelectorAll('.strip-item').forEach(el=>el.classList.toggle('active-item', on && el.dataset.strip===date));
+  function setActive(date){
+    activeDate=date;compareCustom.activeDate=date;
+    document.querySelectorAll('.strip-item').forEach(el=>el.classList.toggle('active-item',el.dataset.strip===date));
   }
 
   function updatePreviewLayout(){
-    const vertical = compareCustom.orientation === 'vertical';
-    strip.classList.toggle('vertical', vertical);
-    // Preview uses the exact same aspect ratio as the generated image; the size slider changes the logical output size, not the phone viewport width.
-    strip.style.aspectRatio = vertical ? '.62' : '1.6129';
-    strip.style.height = 'auto';
-    sizeValue.textContent = Math.round(compareCustom.globalSize) + 'px';
+    const vertical=compareCustom.orientation==='vertical';
+    const size=Math.round(compareCustom.globalSize||460);
+    const n=Math.max(1,compareCustom.length);
+    const ratio=0.62;
+    const stage=document.querySelector('.cust-preview-stage');
+    const wrap=document.querySelector('.cust-preview-wrap');
+    strip.classList.toggle('vertical',vertical);
+
+    // 滑块控制每张图片的实际尺寸；预览区会把整个拼图按比例缩小，
+    // 确保横向排列时所有图片一次性完整显示，不再出现横向滚动条。
+    let rawW, rawH, itemW, itemH;
+    if(vertical){
+      itemW=Math.max(180,Math.round(size*ratio));
+      itemH=Math.max(180,size);
+      rawW=itemW;
+      rawH=itemH*n;
+    }else{
+      itemW=Math.max(180,size);
+      itemH=Math.max(180,Math.round(size*ratio));
+      rawW=itemW*n;
+      rawH=itemH;
+    }
+
+    const availableW=Math.max(1,(wrap?.clientWidth||420)-2);
+    const maxPreviewH=420;
+    const fitScale=Math.min(1,availableW/rawW,maxPreviewH/rawH);
+    const displayH=rawH*fitScale;
+
+    strip.style.width=rawW+'px';
+    strip.style.height=rawH+'px';
+    strip.style.transform=`scale(${fitScale})`;
+
+    if(stage){
+      stage.style.height=Math.max(1,Math.ceil(displayH))+'px';
+      stage.style.minHeight='0';
+    }
+
+    compareCustom.forEach(c=>{
+      const el=strip.querySelector(`[data-strip="${c.date}"]`);
+      if(el){
+        el.style.width=itemW+'px';
+        el.style.height=itemH+'px';
+      }
+    });
+
+    sizeValue.textContent=size+'px';
+    sizeSlider.value=String(size);
   }
 
   function updateImage(c){
-    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(!img) return;
-    img.style.objectPosition = `${Math.round((c.focalX ?? .5)*100)}% ${Math.round((c.focalY ?? .5)*100)}%`;
-    img.style.transform = `scale(${c.zoom ?? 1})`;
+    const img=document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(!img)return;
+    img.style.objectPosition=`${Math.round((c.focalX??.5)*100)}% ${Math.round((c.focalY??.5)*100)}%`;
+    img.style.transform=`scale(${c.zoom??1})`;
   }
 
-  await Promise.all(compareCustom.map(async c => {
-    const photo = await loadPhoto(proj.id, c.date);
-    c.photo = photo;
-    c.focalX = c.focalX ?? .5;
-    c.focalY = c.focalY ?? .5;
-    c.zoom = c.zoom ?? 1;
-    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(img && photo) img.src = photo;
+  await Promise.all(compareCustom.map(async c=>{
+    c.photo=await loadPhoto(proj.id,c.date);
+    const img=document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(img&&c.photo)img.src=c.photo;
     updateImage(c);
   }));
   updatePreviewLayout();
-  setActive(activeDate, false);
+  setActive(activeDate);
 
   document.querySelectorAll('[data-orientation]').forEach(btn=>{
-    btn.onclick = () => {
-      compareCustom.orientation = btn.dataset.orientation;
-      document.querySelectorAll('[data-orientation]').forEach(b=>b.classList.toggle('active', b===btn));
+    btn.onclick=()=>{
+      compareCustom.orientation=btn.dataset.orientation;
+      document.querySelectorAll('[data-orientation]').forEach(b=>b.classList.toggle('active',b===btn));
       updatePreviewLayout();
+      const label=document.querySelector('.global-size-head label');
+      if(label) label.textContent=compareCustom.orientation==='horizontal'?'图片宽度':'图片高度';
+      const hint=document.querySelector('.global-size .touch-hint');
+      if(hint) hint.textContent='所有图片等分；'+(compareCustom.orientation==='horizontal'?'调整每张图片的宽度':'调整每张图片的高度')+'，预览会实时同步。';
     };
   });
 
-  sizeSlider.oninput = () => {
-    compareCustom.globalSize = parseFloat(sizeSlider.value);
+  sizeSlider.oninput=()=>{
+    compareCustom.globalSize=parseFloat(sizeSlider.value);
     updatePreviewLayout();
   };
 
-  // Direct manipulation: one finger drags the selected photo; two fingers pinch-zoom it.
-  let drag = null;
-  let pinch = null;
-  const pointers = new Map();
 
-  strip.addEventListener('pointerdown', e=>{
-    const item = e.target.closest('.strip-item');
-    if(!item) return;
-    const date=item.dataset.strip;
-    const c=compareCustom.find(x=>x.date===date); if(!c) return;
-    setActive(date, true);
+  window.addEventListener('resize', updatePreviewLayout);
+
+  strip.addEventListener('click',e=>{
+    const item=e.target.closest('.strip-item');if(item)setActive(item.dataset.strip);
+  });
+
+  let drag=null,pinch=null;
+  const pointers=new Map();
+
+  strip.addEventListener('pointerdown',e=>{
+    const item=e.target.closest('.strip-item');if(!item)return;
+    const date=item.dataset.strip,c=compareCustom.find(x=>x.date===date);if(!c)return;
+    setActive(date);
     pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,date});
-
     if(pointers.size===2){
-      const pts=[...pointers.values()];
-      const a=pts[0], b=pts[1];
-      const sameDate=a.date===b.date ? a.date : date;
-      const target=compareCustom.find(x=>x.date===sameDate) || c;
+      const pts=[...pointers.values()],a=pts[0],b=pts[1];
+      const target=compareCustom.find(x=>x.date===(a.date===b.date?a.date:date))||c;
       pinch={date:target.date,startDist:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),startZoom:target.zoom||1};
       drag=null;
-    }else{
-      drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
-    }
-    try{strip.setPointerCapture(e.pointerId);}catch(err){}
+    }else drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
+    try{strip.setPointerCapture(e.pointerId)}catch(err){}
     e.preventDefault();
   });
 
-  strip.addEventListener('pointermove', e=>{
-    const p=pointers.get(e.pointerId);
-    if(p){p.x=e.clientX;p.y=e.clientY;}
-
-    if(pinch && pointers.size>=2){
-      const pts=[...pointers.values()];
-      const a=pts[0], b=pts[1];
+  strip.addEventListener('pointermove',e=>{
+    const p=pointers.get(e.pointerId);if(p){p.x=e.clientX;p.y=e.clientY;}
+    if(pinch&&pointers.size>=2){
+      const pts=[...pointers.values()],a=pts[0],b=pts[1];
       const dist=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y));
       const c=compareCustom.find(x=>x.date===pinch.date);
-      if(c){
-        c.zoom=Math.max(1,Math.min(3.5,pinch.startZoom*(dist/pinch.startDist)));
-        updateImage(c);
-      }
-      e.preventDefault(); return;
+      if(c){c.zoom=Math.max(1,Math.min(3.5,pinch.startZoom*(dist/pinch.startDist)));updateImage(c);}
+      e.preventDefault();return;
     }
-
-    if(!drag || drag.id!==e.pointerId) return;
-    const c=compareCustom.find(x=>x.date===drag.date); if(!c) return;
-    const item=strip.querySelector(`[data-strip="${drag.date}"]`);
-    if(!item) return;
+    if(!drag||drag.id!==e.pointerId)return;
+    const c=compareCustom.find(x=>x.date===drag.date);if(!c)return;
+    const item=strip.querySelector(`[data-strip="${drag.date}"]`);if(!item)return;
     const rect=item.getBoundingClientRect();
-    // Drag feels natural: move the photo in the same direction as the finger.
-    const sensitivityX=1/Math.max(1,rect.width);
-    const sensitivityY=1/Math.max(1,rect.height);
-    c.focalX=Math.max(0,Math.min(1,drag.startFX-(e.clientX-drag.startX)*sensitivityX));
-    c.focalY=Math.max(0,Math.min(1,drag.startFY-(e.clientY-drag.startY)*sensitivityY));
-    updateImage(c);
-    e.preventDefault();
+    c.focalX=Math.max(0,Math.min(1,drag.startFX-(e.clientX-drag.startX)/Math.max(1,rect.width)));
+    c.focalY=Math.max(0,Math.min(1,drag.startFY-(e.clientY-drag.startY)/Math.max(1,rect.height)));
+    updateImage(c);e.preventDefault();
   });
 
   const endPointer=e=>{
-    pointers.delete(e.pointerId);
-    if(pointers.size<2) pinch=null;
-    if(drag?.id===e.pointerId) drag=null;
+    pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(drag?.id===e.pointerId)drag=null;
   };
   ['pointerup','pointercancel','pointerleave'].forEach(ev=>strip.addEventListener(ev,endPointer));
 
-  document.getElementById('cust-gen-btn').onclick = async () => {
-    const btn=document.getElementById('cust-gen-btn');
-    btn.disabled=true; btn.textContent='生成中…';
+  document.getElementById('cust-gen-btn').onclick=async()=>{
+    const btn=document.getElementById('cust-gen-btn');btn.disabled=true;btn.textContent='生成中…';
     try{
       const entries=compareCustom.map(c=>{
         const m=meta.find(x=>x.date===c.date);
@@ -1617,13 +1656,12 @@ async function bindCompareCustomize(proj, meta){
       });
       const image=await generateComparison(proj.name,entries,compareCustom.orientation,compareCustom.globalSize);
       view={name:'compareResult',id:proj.id,image,orientation:compareCustom.orientation};
-      compareMode=false; selected=new Set(); compareCustom=[]; render();
+      compareMode=false;selected=new Set();compareCustom=[];render();
     }catch(e){
-      showToast('生成失败：'+e.message); btn.disabled=false; btn.textContent='生成对比图';
+      showToast('生成失败：'+e.message);btn.disabled=false;btn.textContent='生成对比图';
     }
   };
 }
-
 function bindCompareResult(){
   document.getElementById('back-btn').onclick = () => { view={name:'project',id:view.id}; render(); };
   document.getElementById('result-back-btn').onclick = () => {
