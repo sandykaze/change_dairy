@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>变化日记</title>
+<title>时序</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -476,6 +476,308 @@
     z-index:100;
   }
 </style>
+
+<style id="premium-visual-refresh">
+:root{
+  --bg:#F4F3EF;
+  --surface:#FBFAF7;
+  --surface-alt:#F0EFEA;
+  --ink:#24231F;
+  --ink-soft:#6D6A63;
+  --ink-faint:#9A968D;
+  --accent:#24231F;
+  --accent-dark:#11110F;
+  --accent-soft:#E7E5DE;
+  --danger:#8B4A3A;
+  --border:#DDD9D0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  padding-bottom:32px;
+}
+.app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  background:var(--bg);
+  position:relative;
+}
+header.topbar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:24px 22px 18px;
+  position:sticky;
+  top:0;
+  background:rgba(244,243,239,.94);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  z-index:5;
+  border-bottom:1px solid rgba(221,217,208,.45);
+}
+header.topbar .back{
+  width:32px;height:32px;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  font-size:15px;
+  color:var(--ink);
+  flex-shrink:0;
+}
+header.topbar h1{
+  font-family:"Source Serif 4",Georgia,serif;
+  font-weight:600;
+  font-size:24px;
+  line-height:1.1;
+  margin:0;
+  letter-spacing:-.025em;
+  flex:1;
+  min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+main{padding:12px 22px 112px}
+
+.empty-state{
+  text-align:center;
+  padding:82px 28px;
+  color:var(--ink-soft);
+}
+.empty-state .glyph{
+  font-size:30px;
+  filter:grayscale(1);
+  opacity:.72;
+  margin-bottom:16px;
+}
+.empty-state p{font-size:14px;line-height:1.75;margin:0}
+
+.project-card{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:15px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:transform .12s ease,background .12s ease;
+  box-shadow:0 1px 0 rgba(0,0,0,.02);
+}
+.project-card:active{transform:scale(.985)}
+.project-card .icon{
+  width:46px;height:46px;
+  border-radius:11px;
+  background:var(--surface-alt);
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;
+  flex-shrink:0;
+  filter:grayscale(.15);
+}
+.project-card .info{flex:1;min-width:0}
+.project-card .info .name{
+  font-weight:600;font-size:15px;margin-bottom:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.project-card .info .meta{font-size:12px;color:var(--ink-soft)}
+.project-card .del,.project-card .edit{
+  color:var(--ink-faint);
+  font-size:12px;
+  padding:5px 4px;
+  flex-shrink:0;
+}
+
+.fab{
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  transform:translateX(-50%);
+  max-width:436px;
+  width:calc(100% - 44px);
+  background:var(--accent);
+  color:#F8F7F3;
+  border:none;
+  border-radius:13px;
+  padding:15px;
+  font-size:14px;
+  font-weight:600;
+  font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(25,24,21,.13);
+  z-index:20;
+}
+.fab:active{background:var(--accent-dark)}
+.fab.secondary{
+  background:var(--surface);
+  color:var(--ink);
+  border:1px solid var(--border);
+  box-shadow:none;
+}
+.fab-row{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  max-width:436px;width:calc(100% - 44px);
+  display:flex;gap:8px;z-index:20;
+}
+.fab-row .fab{position:static;transform:none;width:auto;flex:1}
+
+.toolbar{display:flex;gap:8px;margin-bottom:14px}
+.chip-btn{
+  flex:1;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;text-align:center;
+}
+.chip-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.entry-row{
+  display:flex;gap:13px;align-items:center;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px;
+  margin-bottom:9px;
+}
+.entry-row .thumb{
+  width:62px;height:76px;border-radius:9px;object-fit:cover;
+  background:var(--surface-alt);flex-shrink:0;
+}
+.entry-row .info{flex:1;min-width:0}
+.entry-row .date{font-weight:600;font-size:14px}
+.entry-row .note{
+  font-size:12.5px;color:var(--ink-soft);margin-top:4px;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.entry-row .check{
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;
+}
+.entry-row .check.checked{background:var(--accent);border-color:var(--accent)}
+.entry-row .del-x{color:var(--ink-faint);font-size:16px;padding:4px}
+.entry-row .edit-x{color:var(--ink-soft);font-size:12px;padding:4px;pointer-events:none}
+
+.select-bar{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  max-width:436px;width:calc(100% - 44px);
+  background:var(--ink);color:#fff;border-radius:13px;padding:12px 14px;
+  display:flex;align-items:center;justify-content:space-between;z-index:20;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+}
+.select-bar span{font-size:12.5px;color:#D7D4CC}
+.select-bar button{
+  background:#fff;color:var(--ink);border:none;border-radius:9px;padding:9px 13px;
+  font-family:inherit;font-weight:600;font-size:12.5px;
+}
+.select-bar button:disabled{background:#4C4A45;color:#85827A}
+
+.overlay{
+  position:fixed;inset:0;background:rgba(24,23,20,.42);
+  display:flex;align-items:flex-end;justify-content:center;z-index:50;
+}
+.sheet{
+  width:100%;max-width:480px;background:var(--surface);
+  border-radius:20px 20px 0 0;padding:22px 22px 26px;
+  max-height:90vh;overflow-y:auto;
+  box-shadow:0 -12px 40px rgba(0,0,0,.08);
+}
+.sheet h2{
+  font-family:"Source Serif 4",Georgia,serif;
+  font-size:21px;font-weight:600;letter-spacing:-.02em;margin:0 0 18px;
+}
+.field{margin-bottom:17px}
+.field label{
+  display:block;font-size:12px;font-weight:600;color:var(--ink-soft);
+  margin-bottom:7px;letter-spacing:.01em;
+}
+.field input[type=text],.field input[type=date],.field textarea{
+  width:100%;border:1px solid var(--border);border-radius:10px;
+  padding:11px 12px;font-family:inherit;font-size:14px;
+  background:var(--surface-alt);color:var(--ink);outline:none;
+}
+.field input:focus,.field textarea:focus{border-color:#A7A39A}
+.field textarea{resize:vertical;min-height:68px}
+.emoji-row{display:flex;gap:7px;flex-wrap:wrap}
+.emoji-row button{
+  width:40px;height:40px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface-alt);font-size:18px;cursor:pointer;filter:grayscale(.2)
+}
+.emoji-row button.sel{border-color:var(--ink);background:#E4E1D9}
+
+.photo-picker{
+  border:1px dashed #CFCAC0;border-radius:11px;padding:16px;text-align:center;
+  color:var(--ink-soft);font-size:13px;cursor:pointer;background:var(--surface-alt);
+}
+.photo-picker img{max-width:100%;max-height:260px;border-radius:8px;display:block;margin:0 auto}
+.sheet-actions{display:flex;gap:8px;margin-top:6px}
+.sheet-actions button{
+  flex:1;padding:13px;border-radius:11px;font-family:inherit;font-weight:600;font-size:14px;
+  border:none;cursor:pointer;
+}
+.sheet-actions .cancel{background:var(--surface-alt);color:var(--ink-soft);border:1px solid var(--border)}
+.sheet-actions .save{background:var(--accent);color:#fff}
+.sheet-actions .save:disabled{background:#B9B6AF;color:#fff}
+
+#crop-stage{position:relative;margin:0 auto 14px;border-radius:10px;overflow:hidden;background:#181714;touch-action:none}
+#crop-img{position:absolute;top:0;left:0;transform-origin:top left;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#crop-box{position:absolute;box-shadow:0 0 0 2000px rgba(10,9,7,.58);border:1px solid #fff;box-sizing:border-box;touch-action:none}
+#crop-box::before,#crop-box::after{content:"";position:absolute;background:rgba(255,255,255,.30)}
+#crop-box::before{left:33.33%;right:33.33%;top:0;bottom:0;width:1px}
+#crop-box::after{top:33.33%;bottom:33.33%;left:0;right:0;height:1px}
+.crop-handle{position:absolute;width:22px;height:22px;margin:-11px;touch-action:none}
+.crop-handle::after{content:"";position:absolute;top:7px;left:7px;right:7px;bottom:7px;background:#fff;border-radius:2px}
+.ratio-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.ratio-row button{
+  padding:8px 11px;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface-alt);color:var(--ink-soft);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer
+}
+.ratio-row button.sel{border-color:var(--ink);background:#E4E1D9;color:var(--ink)}
+
+.orientation-row{display:flex;gap:7px;margin:0 0 12px}
+.orientation-btn{
+  flex:1;padding:10px 11px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--ink-soft);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer
+}
+.orientation-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.global-size,.cust-size-control{
+  background:var(--surface);border:1px solid var(--border);border-radius:13px;
+  padding:13px 14px;margin-bottom:12px
+}
+.global-size-head,.cust-size-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:7px}
+.global-size-head label,.cust-size-head label{font-size:12px;font-weight:600;color:var(--ink-soft)}
+.global-size-head strong,.cust-size-head strong{font-size:12px;color:var(--ink)}
+.global-size input[type=range],.cust-size-control input[type=range]{width:100%}
+.shape-row{display:flex;align-items:center;gap:9px}
+.shape-row input[type=range]{flex:1;width:auto}
+.shape-tag{font-size:11px;color:var(--ink-soft);flex-shrink:0;white-space:nowrap}
+.touch-hint{font-size:11px;color:var(--ink-faint);margin-top:6px;line-height:1.5}
+.cust-preview-wrap{width:100%;overflow:hidden;border-radius:10px;margin-bottom:12px;background:var(--surface-alt);border:1px solid var(--border)}
+.cust-preview-stage{width:100%;display:flex;overflow:hidden;justify-content:center;align-items:flex-start;padding:0}
+.cust-strip{display:flex;width:100%;height:auto;transform-origin:top center;border-radius:0;overflow:hidden;background:var(--surface-alt);touch-action:none;user-select:none;flex:none}
+.cust-strip.vertical{display:flex;flex-direction:column}
+.cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:0 0 auto;touch-action:none;background:#E4E2DB}
+.cust-strip .strip-item img{position:absolute;left:0;top:0;width:auto;height:auto;max-width:none;max-height:none;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;transform:none;transform-origin:top left}
+.cust-strip .strip-item.active-item{outline:2px solid var(--ink);outline-offset:-2px;z-index:2}
+.cust-strip .strip-item::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 72%,rgba(15,14,12,.20));opacity:0;transition:opacity .15s}
+.cust-strip .strip-item.active-item::after{opacity:1}
+.compare-result{width:100%;overflow-x:auto;overflow-y:auto;border-radius:10px;background:var(--surface-alt);border:1px solid var(--border);padding:0;-webkit-overflow-scrolling:touch}
+.compare-result img{display:block;width:100%;max-width:100%;height:auto;border-radius:0;margin:0 auto}
+.result-actions{display:flex;gap:8px;margin-top:12px;width:100%}
+.result-action-btn{flex:1;min-width:0;padding:13px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;text-align:center;cursor:pointer}
+.result-action-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.toast{position:fixed;left:50%;bottom:94px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 15px;border-radius:10px;font-size:12.5px;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.16)}
+
+input[type=range]{accent-color:var(--ink)}
+button{transition:opacity .12s ease,transform .12s ease}
+button:active{transform:scale(.985)}
+</style>
+
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -766,8 +1068,11 @@ async function generateComparison(projectName, entries, orientation='horizontal'
     width = Math.max(240, Math.round(SIZE * n));
     height = Math.max(240, Math.round(SIZE * ratio));
   }else{
-    width = Math.max(240, Math.round(SIZE * ratio));
-    height = Math.max(240, Math.round(SIZE * n));
+    // 与纵向预览完全一致：
+    // 每张照片 = SIZE × (SIZE × ratio)
+    // 整体拼图 = SIZE × (SIZE × ratio × n)
+    width = Math.max(240, Math.round(SIZE));
+    height = Math.max(240, Math.round(SIZE * ratio * n));
   }
 
   const dpr = 2;
@@ -903,7 +1208,7 @@ function renderHome(){
   if(projects.length === 0){
     list = `<div class="empty-state">
       <div class="glyph">📔</div>
-      <p>还没有项目。<br>新建一个开始记录变化，比如牙齿、脸部或体态。</p>
+      <p>还没有项目。<br>记录一段时间里的变化，照片会按日期沉淀下来。</p>
     </div>`;
   } else {
     list = projects.map(p => `
@@ -919,9 +1224,9 @@ function renderHome(){
     `).join('');
   }
   return `
-    <header class="topbar"><h1>变化日记</h1></header>
+    <header class="topbar"><h1>时序</h1></header><div style="padding:6px 22px 2px;color:var(--ink-soft);font-size:12px;letter-spacing:.02em;">记录变化，留住时间里的细节</div>
     <main>${list}</main>
-    <button class="fab" id="new-project-btn">＋ 新建项目</button>
+    <button class="fab" id="new-project-btn">＋ 新建记录</button>
   `;
 }
 
@@ -930,7 +1235,7 @@ function renderProject(proj, meta){
   if(meta.length === 0){
     rows = `<div class="empty-state">
       <div class="glyph">${proj.icon}</div>
-      <p>还没有记录，点击下方按钮添加第一张照片。</p>
+      <p>还没有记录，添加第一张照片开始。</p>
     </div>`;
   } else {
     rows = meta.map(e => `
@@ -949,11 +1254,11 @@ function renderProject(proj, meta){
   const bottomBar = compareMode
     ? `<div class="select-bar">
         <span>已选 ${selected.size}/5（至少选 2 个日期）</span>
-        <button id="gen-compare-btn" ${selected.size>=2 && selected.size<=5 ? '' : 'disabled'}>生成对比图</button>
+        <button id="gen-compare-btn" ${selected.size>=2 && selected.size<=5 ? '' : 'disabled'}>生成对照图</button>
        </div>`
     : `<div class="fab-row">
         <button class="fab secondary" id="toggle-compare-btn" ${meta.length<2?'disabled style="opacity:.5"':''}>对比</button>
-        <button class="fab" id="add-entry-btn">＋ 记录今天</button>
+        <button class="fab" id="add-entry-btn">＋ 添加照片</button>
        </div>`;
 
   return `
@@ -981,7 +1286,7 @@ function renderCompareCustomize(proj, meta){
   return `
     <header class="topbar">
       <div class="back" id="back-btn">←</div>
-      <h1>调整拼图</h1>
+      <h1>调整对照图</h1>
     </header>
     <main>
       <div class="orientation-row">
@@ -989,7 +1294,7 @@ function renderCompareCustomize(proj, meta){
         <button class="orientation-btn ${orientation==='vertical'?'active':''}" data-orientation="vertical">纵向排列</button>
       </div>
       <div class="global-size">
-        <div class="global-size-head"><label>照片形状</label></div>
+        <div class="global-size-head"><label>画面比例</label></div>
         <div class="shape-row">
           <span class="shape-tag">宽扁</span>
           <input type="range" id="cell-ratio" min="0.35" max="1.15" step="0.01" value="${ratio}">
@@ -999,7 +1304,7 @@ function renderCompareCustomize(proj, meta){
       </div>
       <div class="cust-preview-wrap"><div class="cust-preview-stage"><div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div></div></div>
       <div class="touch-hint" style="margin:0 2px 14px;">点击图片后可拖动调整露出位置，也可以双指缩放。</div>
-      <button class="fab" id="cust-gen-btn" style="position:static;transform:none;width:100%;max-width:none;margin-top:4px;">生成对比图</button>
+      <button class="fab" id="cust-gen-btn" style="position:static;transform:none;width:100%;max-width:none;margin-top:4px;">生成对照图</button>
     </main>
   `;
 }
@@ -1007,11 +1312,11 @@ function renderCompareResult(){
   return `
     <header class="topbar">
       <div class="back" id="back-btn">←</div>
-      <h1>对比图</h1>
+      <h1>对照图</h1>
     </header>
     <main>
       <div class="compare-result">
-        <img id="compare-img" src="${view.image}" alt="对比图">
+        <img id="compare-img" src="${view.image}" alt="对照图">
       </div>
       <p style="text-align:center;font-size:13px;color:var(--ink-soft);line-height:1.5;margin:12px 4px 14px;">可以双指缩放查看，也可以长按图片保存到手机相册。</p>
       <div class="result-actions">
@@ -1042,9 +1347,9 @@ function renderModal(){
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
-          <h2>${isEdit ? '编辑项目' : '新建项目'}</h2>
+          <h2>${isEdit ? '编辑记录' : '新建记录'}</h2>
           <div class="field">
-            <label>项目名称</label>
+            <label>记录名称</label>
             <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态" value="${isEdit ? escapeHtml(existing.name) : ''}">
           </div>
           <div class="field">
@@ -1069,7 +1374,7 @@ function renderModal(){
     root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
     root.querySelector('#np-save').onclick = async () => {
       const name = root.querySelector('#np-name').value.trim();
-      if(!name){ showToast('请输入项目名称'); return; }
+      if(!name){ showToast('请输入记录名称'); return; }
       const icon = iconInput.value.trim() || '📷';
       const saveBtn = root.querySelector('#np-save');
       saveBtn.disabled = true;
@@ -1107,7 +1412,7 @@ function renderModal(){
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
-          <h2>${isEdit ? '编辑记录' : '添加记录'}</h2>
+          <h2>${isEdit ? '编辑记录' : '添加照片'}</h2>
           <div class="field">
             <label>日期${entryDraft.dateFromExif ? '（已根据照片拍摄时间自动填写）' : ''}</label>
             <input type="date" id="ae-date" value="${entryDraft.date}" max="${todayStr()}">
@@ -1762,7 +2067,7 @@ async function bindCompareCustomize(proj, meta){
     }catch(e){
       showToast('生成失败：' + e.message); 
       btn.disabled = false; 
-      btn.textContent = '生成对比图';
+      btn.textContent = '生成对照图';
     }
   };
 }
@@ -1793,8 +2098,8 @@ function bindCompareResult(){
   document.getElementById('share-btn').onclick = async () => {
     try{
       const blob=dataURLtoBlob(view.image);
-      const file=new File([blob],`对比图-${Date.now()}.png`,{type:'image/png'});
-      if(navigator.canShare && navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'对比图'});return;}
+      const file=new File([blob],`对照图-${Date.now()}.png`,{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'对照图'});return;}
       const url=URL.createObjectURL(blob); window.open(url,'_blank'); showToast('已在新标签页打开，长按图片保存');
     }catch(e){ if(e&&e.name==='AbortError')return; showToast('分享失败，请直接长按上方图片保存'); }
   };
@@ -1806,6 +2111,176 @@ function bindCompareResult(){
   await loadProjects();
   render();
 })();
+
+/* SYNC_COLLAGE_RENDERER_START */
+(function(){
+  // One source of truth for collage geometry. Preview and export both call this.
+  window.SyncCollage = {
+    normalize(items, direction, gap, ratio){
+      const arr = (items || []).map((it,i)=>({
+        src: it.src || it.url || it.image || "",
+        scale: Number.isFinite(+it.scale) ? +it.scale : 1,
+        x: Number.isFinite(+it.x) ? +it.x : 0,
+        y: Number.isFinite(+it.y) ? +it.y : 0,
+        order: Number.isFinite(+it.order) ? +it.order : i
+      })).filter(x=>x.src);
+      return {items:arr, direction:direction==="vertical"?"vertical":"horizontal",
+              gap:Math.max(0,+gap||0), ratio:ratio||"auto"};
+    },
+
+    async load(src){
+      return new Promise((resolve,reject)=>{
+        const im=new Image();
+        im.onload=()=>resolve(im);
+        im.onerror=reject;
+        im.src=src;
+      });
+    },
+
+    async layout(state, boxW){
+      const W=Math.max(1, Math.round(boxW||720));
+      const gap=state.gap;
+      const imgs=await Promise.all(state.items.map(x=>this.load(x.src)));
+      const ratio = state.ratio;
+      let H;
+      // The preview defines the cell geometry as:
+      // horizontal: cellW = availableW / n, cellH = cellW * ratio
+      // vertical:   cellW = availableW,     cellH = cellW * ratio
+      // Export must use exactly the same relationship.
+      const n = Math.max(1, imgs.length);
+      const cellW = state.direction==="horizontal"
+        ? (W-gap*(n-1))/n
+        : W;
+      const cellH = ratio && ratio!=="auto"
+        ? cellW * (typeof ratio==="number" ? ratio : 0.62)
+        : (state.direction==="vertical"
+            ? Math.max(1, W/n)
+            : Math.max(...imgs.map(im=>cellW*im.naturalHeight/im.naturalWidth)));
+      const tileW = cellW;
+      const tileH = cellH;
+      H = state.direction==="vertical"
+        ? tileH*n + gap*(n-1)
+        : tileH;
+
+      return {W,H,tileW,tileH,gap,imgs};
+    },
+
+    draw(ctx, state, L){
+      ctx.clearRect(0,0,L.W,L.H);
+      ctx.fillStyle="#f0efea";
+      ctx.fillRect(0,0,L.W,L.H);
+
+      state.items.forEach((item,i)=>{
+        const im=L.imgs[i];
+        let x,y,w,h;
+        if(state.direction==="horizontal"){
+          x=i*(L.tileW+L.gap); y=0; w=L.tileW; h=L.tileH;
+        }else{
+          x=0; y=i*(L.tileH+L.gap); w=L.tileW; h=L.tileH;
+        }
+
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+
+        // IMPORTANT: use the exact same transform semantics as preview:
+        // scale around tile center, then translate by x/y percentages.
+        const scale=Math.max(.1,item.scale||1);
+        const iw=im.naturalWidth, ih=im.naturalHeight;
+        const cover=Math.max(w/iw,h/ih);
+        const dw=iw*cover*scale, dh=ih*cover*scale;
+        const dx=x+(w-dw)/2 + (item.x||0)*w;
+        const dy=y+(h-dh)/2 + (item.y||0)*h;
+        ctx.drawImage(im,dx,dy,dw,dh);
+        ctx.restore();
+      });
+    },
+
+    async export(state, boxW){
+      const L=await this.layout(state,boxW);
+      const dpr=2;
+      const c=document.createElement("canvas");
+      c.width=Math.round(L.W*dpr); c.height=Math.round(L.H*dpr);
+      const ctx=c.getContext("2d");
+      ctx.scale(dpr,dpr);
+      this.draw(ctx,state,L);
+      return c.toDataURL("image/jpeg",.94);
+    }
+  };
+})();
+/* SYNC_COLLAGE_RENDERER_END */
+
 </script>
+
+<script id="sync-collage-final-patch">
+(function(){
+  function q(sel){return document.querySelector(sel)}
+  function getState(){
+    // Read the currently rendered collage state from the app's commonly used globals.
+    const g=window;
+    const candidates=[
+      g.customCollageState,g.collageState,g.customState,g.currentCollage,
+      g.currentCollageState,g.customPuzzleState
+    ];
+    let st=candidates.find(x=>x && Array.isArray(x.items));
+    if(st) return SyncCollage.normalize(st.items,st.direction,st.gap,st.ratio);
+
+    // DOM fallback: preview tiles themselves become the source of truth.
+    const root=q(".cust-strip") || q(".custom-strip") || q("[data-collage]");
+    if(root){
+      const tiles=[...root.querySelectorAll(".strip-item")];
+      const items=tiles.map(t=>{
+        const im=t.querySelector("img");
+        const cs=im?getComputedStyle(im):null;
+        const tr=cs?cs.transform:"none";
+        return {src:im?.currentSrc||im?.src||"",
+          scale:1,x:0,y:0,transform:tr};
+      }).filter(x=>x.src);
+      return SyncCollage.normalize(items,
+        root.classList.contains("vertical")?"vertical":"horizontal",0,"auto");
+    }
+    return null;
+  }
+
+  // Expose a single final renderer for existing code to call.
+  window.renderCollageExactly = async function(){
+    const state=getState();
+    if(!state || !state.items.length) return null;
+    const root=q(".cust-preview-stage")||q(".cust-preview-wrap")||q(".cust-strip");
+    const w=root ? Math.max(320, Math.round(root.clientWidth||720)) : 720;
+    const data=await SyncCollage.export(state,w);
+    window.__lastExactCollageData=data;
+    return data;
+  };
+
+  // If the app has an export button, make it use the exact renderer.
+  document.addEventListener("click", async function(e){
+    const b=e.target.closest("button");
+    if(!b) return;
+    const txt=(b.textContent||"").trim();
+    if(!/生成|导出|保存.*对照|下载.*对照/.test(txt)) return;
+    // Don't block the original handler; after its current state settles, refresh result.
+    setTimeout(async()=>{
+      try{
+        const data=await window.renderCollageExactly();
+        if(!data) return;
+        const imgs=[...document.querySelectorAll("img")];
+        const result=imgs.find(im=>im.closest(".compare-result")||im.closest("#result"));
+        if(result) result.src=data;
+        const a=[...document.querySelectorAll("a")].find(x=>/下载|保存/.test(x.textContent||""));
+        if(a){a.href=data;a.download="对照图.jpg";}
+      }catch(err){console.warn("exact collage render failed",err)}
+    },80);
+  },true);
+
+  // Keep a result visually identical whenever the preview changes.
+  let timer=0;
+  const mo=new MutationObserver(()=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=>window.renderCollageExactly().catch(()=>{}),120);
+  });
+  mo.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["style","class"]});
+})();
+</script>
+
 </body>
 </html>
