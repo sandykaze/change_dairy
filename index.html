@@ -124,6 +124,12 @@
     padding:6px 8px;
     flex-shrink:0;
   }
+  .project-card .edit{
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:6px 8px;
+    flex-shrink:0;
+  }
 
   .fab{
     position:fixed;
@@ -234,6 +240,14 @@
     padding:4px 6px;
     flex-shrink:0;
   }
+  .entry-row .edit-x{
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:4px 6px;
+    flex-shrink:0;
+    pointer-events:none;
+  }
+  .entry-row.clickable{cursor:pointer;}
 
   .select-bar{
     position:fixed;
@@ -344,6 +358,92 @@
   .sheet-actions .save:disabled{background:#B9C4BB;color:#fff;}
 
   .compare-result img{width:100%;border-radius:12px;display:block;}
+
+  /* ---- Crop tool (freeform selection over full photo) ---- */
+  #crop-stage{
+    position:relative;
+    margin:0 auto 14px;
+    border-radius:14px;
+    overflow:hidden;
+    background:#14150F;
+    touch-action:none;
+  }
+  #crop-img{
+    position:absolute;
+    top:0;left:0;
+    transform-origin:top left;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+  #crop-box{
+    position:absolute;
+    box-shadow:0 0 0 2000px rgba(10,12,8,0.6);
+    border:1.5px solid #fff;
+    box-sizing:border-box;
+    touch-action:none;
+  }
+  #crop-box::before, #crop-box::after{
+    content:'';
+    position:absolute;
+    background:rgba(255,255,255,0.35);
+  }
+  #crop-box::before{ left:33.33%;right:33.33%;top:0;bottom:0;width:1px; }
+  #crop-box::after{ top:33.33%;bottom:33.33%;left:0;right:0;height:1px; }
+  .crop-handle{
+    position:absolute;
+    width:22px;height:22px;
+    margin:-11px;
+    touch-action:none;
+  }
+  .crop-handle::after{
+    content:'';
+    position:absolute;
+    top:6px;left:6px;right:6px;bottom:6px;
+    background:#fff;
+    border-radius:3px;
+  }
+  .crop-handle.nw{top:0;left:0;cursor:nwse-resize;}
+  .crop-handle.ne{top:0;right:0;cursor:nesw-resize;transform:translateX(100%);}
+  .crop-handle.sw{bottom:0;left:0;cursor:nesw-resize;transform:translateY(100%);}
+  .crop-handle.se{bottom:0;right:0;cursor:nwse-resize;transform:translate(100%,100%);}
+  .ratio-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .ratio-row button{
+    padding:8px 12px;
+    border-radius:10px;
+    border:1.5px solid var(--border);
+    background:var(--surface-alt);
+    color:var(--ink-soft);
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .ratio-row button.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
+
+  /* ---- Compare customize (per-photo width / exposed range) ---- */
+  .cust-item{
+    display:flex;
+    gap:12px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .cust-item .cust-preview{
+    width:70px;height:90px;
+    border-radius:10px;
+    overflow:hidden;
+    background:var(--surface-alt);
+    flex-shrink:0;
+  }
+  .cust-item .cust-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .cust-item .cust-controls{flex:1;min-width:0;}
+  .cust-item .cust-date{font-weight:600;font-size:13.5px;margin-bottom:6px;}
+  .cust-item .cust-slider-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .cust-item .cust-slider-row label{font-size:11.5px;color:var(--ink-soft);width:56px;flex-shrink:0;}
+  .cust-item .cust-slider-row input[type=range]{flex:1;}
   .toast{
     position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
     background:var(--ink);color:#fff;
@@ -360,10 +460,11 @@ let projects = [];
 let view = { name: 'home' };           // {name:'home'} | {name:'project', id} | {name:'compareResult', id, image}
 let compareMode = false;
 let selected = new Set();
-let modal = null;                       // {type:'newProject'} | {type:'addEntry', projectId} | {type:'cropPhoto', projectId, rawDataUrl} | {type:'confirmDeleteProject', id} etc
+let modal = null;                       // {type:'newProject'} | {type:'editProject', id} | {type:'addEntry', projectId} | {type:'cropPhoto', projectId, rawDataUrl} | {type:'confirmDeleteProject', id} etc
 let toastTimer = null;
-let entryDraft = { date: null, note: '', photo: null }; // in-progress add-entry form, survives the crop step
-const CROP_W = 700, CROP_H = 900; // canonical stored-photo size (matches comparison frame ratio)
+let entryDraft = { date: null, note: '', photo: null, editingDate: null }; // in-progress add/edit-entry form, survives the crop step
+let compareCustom = [];                 // [{date, weight, focalX}] per-photo width/exposed-range settings for the current comparison
+const CROP_OUT_MAX = 1400; // longest edge (px) for a saved/cropped photo
 
 function fmtDate(d){
   const [y,m,day] = d.split('-');
@@ -627,11 +728,25 @@ function wrapText(ctx, text, maxWidth, maxLines){
   return lines;
 }
 
+// entries: [{date, note, photo, weight, focalX}]
+// weight   - relative display-width multiplier for this photo (1 = its natural "cover" width at ROW_H)
+// focalX   - 0..1, which part of the photo's width stays visible when it's narrower than its natural cover width
 async function generateComparison(projectName, entries){
-  const FRAME_W = 280, FRAME_H = 360, GAP = 22, LABEL_H = 78, TITLE_H = 60, PAD = 22;
-  const n = entries.length;
-  const width = n*FRAME_W + (n+1)*GAP;
-  const height = TITLE_H + FRAME_H + LABEL_H + GAP*2 + PAD;
+  const ROW_H = 460, TITLE_H = 58, PAD = 20, RADIUS = 18, MIN_COL = 60;
+  const imgs = await Promise.all(entries.map(e => e.photo ? loadImg(e.photo) : Promise.resolve(null)));
+
+  const colInfo = entries.map((e, i) => {
+    const img = imgs[i];
+    const weight = e.weight || 1;
+    if(!img) return { dw: ROW_H*0.6, dh: ROW_H, colW: Math.max(MIN_COL, ROW_H*0.6*weight) };
+    const scale = ROW_H / img.height;
+    const dw = img.width * scale, dh = ROW_H;
+    const colW = Math.max(MIN_COL, dw * weight);
+    return { dw, dh, colW };
+  });
+
+  const width = Math.round(colInfo.reduce((a,c)=>a+c.colW, 0));
+  const height = TITLE_H + ROW_H + PAD;
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d');
@@ -640,48 +755,70 @@ async function generateComparison(projectName, entries){
   ctx.fillRect(0,0,width,height);
 
   ctx.fillStyle = '#23291F';
-  ctx.font = '600 26px "Source Serif 4", Georgia, serif';
+  ctx.font = '600 24px "Source Serif 4", Georgia, serif';
   ctx.textAlign = 'left';
-  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 12);
-  ctx.strokeStyle = '#DEDFD6';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, TITLE_H); ctx.lineTo(width-PAD, TITLE_H); ctx.stroke();
+  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 16);
 
-  for(let i=0;i<n;i++){
-    const e = entries[i];
-    const x = GAP + i*(FRAME_W+GAP);
-    const y = TITLE_H + GAP;
+  ctx.save();
+  roundRectPath(ctx, 0, TITLE_H, width, ROW_H, RADIUS);
+  ctx.clip();
+
+  let x = 0;
+  for(let i=0;i<entries.length;i++){
+    const e = entries[i], img = imgs[i], { dw, dh, colW } = colInfo[i];
+    const y = TITLE_H;
+
     ctx.save();
-    roundRectPath(ctx, x, y, FRAME_W, FRAME_H, 16);
+    ctx.beginPath();
+    ctx.rect(x, y, colW, ROW_H);
     ctx.clip();
-    ctx.fillStyle = '#E4E7DF';
-    ctx.fillRect(x,y,FRAME_W,FRAME_H);
-    if(e.photo){
-      const img = await loadImg(e.photo);
-      const scale = Math.max(FRAME_W/img.width, FRAME_H/img.height);
-      const dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, x + (FRAME_W-dw)/2, y + (FRAME_H-dh)/2, dw, dh);
+
+    if(img){
+      const focalX = (e.focalX==null) ? 0.5 : e.focalX;
+      let dx = x + colW/2 - focalX*dw; // left edge of the drawn (scaled) image
+      dx = Math.min(x, Math.max(dx, x + colW - dw)); // keep the column fully covered
+      ctx.drawImage(img, dx, y, dw, dh);
+    } else {
+      ctx.fillStyle = '#E4E7DF';
+      ctx.fillRect(x, y, colW, ROW_H);
     }
-    ctx.restore();
-    ctx.strokeStyle = '#DEDFD6';
-    roundRectPath(ctx, x, y, FRAME_W, FRAME_H, 16);
-    ctx.stroke();
 
-    const labelY = y + FRAME_H + 26;
-    ctx.fillStyle = '#23291F';
-    ctx.font = '700 17px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(fmtDateShort(e.date), x + FRAME_W/2, labelY);
+    // floating text scrim
+    const grad = ctx.createLinearGradient(0, y+ROW_H*0.55, 0, y+ROW_H);
+    grad.addColorStop(0, 'rgba(15,17,12,0)');
+    grad.addColorStop(1, 'rgba(15,17,12,0.72)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y+ROW_H*0.55, colW, ROW_H*0.45);
 
+    const textPad = 14;
+    const textW = Math.max(20, colW - textPad*2);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 16px Inter, sans-serif';
+    let ty = y + ROW_H - 14;
     if(e.note){
-      ctx.fillStyle = '#5B6357';
-      ctx.font = '400 13px Inter, sans-serif';
-      const lines = wrapText(ctx, e.note, FRAME_W - 20, 2);
-      lines.forEach((ln, li) => {
-        ctx.fillText(ln, x + FRAME_W/2, labelY + 22 + li*17);
-      });
+      ctx.font = '400 12.5px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      const lines = wrapText(ctx, e.note, textW, 2);
+      for(let li=lines.length-1; li>=0; li--){
+        ctx.fillText(lines[li], x+textPad, ty);
+        ty -= 17;
+      }
     }
+    ctx.font = '700 15px Inter, sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(fmtDateShort(e.date), x+textPad, ty);
+
+    ctx.restore();
+
+    if(i < entries.length-1){
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x+colW, y); ctx.lineTo(x+colW, y+ROW_H); ctx.stroke();
+    }
+    x += colW;
   }
+  ctx.restore();
   return canvas.toDataURL('image/png');
 }
 
@@ -697,6 +834,11 @@ async function render(){
     const meta = await loadMeta(view.id);
     app.innerHTML = renderProject(proj, meta);
     bindProject(proj, meta);
+  } else if(view.name === 'compareCustomize'){
+    const proj = projects.find(p=>p.id===view.id);
+    const meta = await loadMeta(view.id);
+    app.innerHTML = renderCompareCustomize(proj, meta);
+    await bindCompareCustomize(proj, meta);
   } else if(view.name === 'compareResult'){
     app.innerHTML = renderCompareResult();
     bindCompareResult();
@@ -719,6 +861,7 @@ function renderHome(){
           <div class="name">${escapeHtml(p.name)}</div>
           <div class="meta">${p.lastDate ? '最近记录 ' + fmtDateShort(p.lastDate) : '暂无记录'} · ${p.count||0} 条</div>
         </div>
+        <div class="edit" data-edit="${p.id}">编辑</div>
         <div class="del" data-del="${p.id}">删除</div>
       </div>
     `).join('');
@@ -739,14 +882,14 @@ function renderProject(proj, meta){
     </div>`;
   } else {
     rows = meta.map(e => `
-      <div class="entry-row" data-date="${e.date}">
+      <div class="entry-row ${!compareMode ? 'clickable' : ''}" data-date="${e.date}" ${!compareMode ? `data-edit-entry="${e.date}"` : ''}>
         ${compareMode ? `<div class="check ${selected.has(e.date)?'checked':''}" data-check="${e.date}">${selected.has(e.date)?'✓':''}</div>` : ''}
         <img class="thumb" data-thumb="${e.date}" src="" alt="">
         <div class="info">
           <div class="date">${fmtDate(e.date)}</div>
           ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
         </div>
-        ${!compareMode ? `<div class="del-x" data-del-entry="${e.date}">✕</div>` : ''}
+        ${!compareMode ? `<div class="edit-x" data-edit-entry-btn="${e.date}">编辑</div><div class="del-x" data-del-entry="${e.date}">✕</div>` : ''}
       </div>
     `).join('');
   }
@@ -773,6 +916,41 @@ function renderProject(proj, meta){
       ${rows}
     </main>
     ${bottomBar}
+  `;
+}
+
+function renderCompareCustomize(proj, meta){
+  const items = compareCustom.map(c => {
+    const m = meta.find(x=>x.date===c.date);
+    return `
+      <div class="cust-item" data-date="${c.date}">
+        <div class="cust-preview"><img data-cust-thumb="${c.date}" src="" style="object-position:${Math.round(c.focalX*100)}% 50%;"></div>
+        <div class="cust-controls">
+          <div class="cust-date">${fmtDate(c.date)}${m && m.note ? ' · ' + escapeHtml(m.note) : ''}</div>
+          <div class="cust-slider-row">
+            <label>展示宽度</label>
+            <input type="range" min="0.5" max="1.8" step="0.01" value="${c.weight}" data-cust-weight="${c.date}">
+          </div>
+          <div class="cust-slider-row">
+            <label>露出范围</label>
+            <input type="range" min="0" max="1" step="0.01" value="${c.focalX}" data-cust-focal="${c.date}">
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  return `
+    <header class="topbar">
+      <div class="back" id="back-btn">←</div>
+      <h1>调整拼图</h1>
+    </header>
+    <main>
+      <p style="font-size:13px;color:var(--ink-soft);margin:-6px 0 16px;line-height:1.6;">照片会无缝拼接在一起，"展示宽度"决定每张照片在图中占多宽，"露出范围"决定照片左右哪部分被保留。</p>
+      ${items}
+    </main>
+    <div class="fab-row" style="position:static;width:100%;margin-top:6px;">
+      <button class="fab" id="cust-gen-btn">生成对比图</button>
+    </div>
   `;
 }
 
@@ -807,26 +985,28 @@ function renderModal(){
   root.id = 'modal-root';
   document.body.appendChild(root);
 
-  if(modal.type === 'newProject'){
+  if(modal.type === 'newProject' || modal.type === 'editProject'){
+    const isEdit = modal.type === 'editProject';
+    const existing = isEdit ? projects.find(p=>p.id===modal.id) : null;
     const suggestions = ['📷','🦷','😊','🧍','💪','📝','👁️','🖐️','🦵','💇'];
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
-          <h2>新建项目</h2>
+          <h2>${isEdit ? '编辑项目' : '新建项目'}</h2>
           <div class="field">
             <label>项目名称</label>
-            <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态">
+            <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态" value="${isEdit ? escapeHtml(existing.name) : ''}">
           </div>
           <div class="field">
             <label>图标（点击输入框可用手机自带的表情键盘，输入任意 emoji）</label>
-            <input type="text" id="np-icon" value="📷" maxlength="4" style="width:64px;height:52px;font-size:26px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);">
+            <input type="text" id="np-icon" value="${isEdit ? existing.icon : '📷'}" maxlength="4" style="width:64px;height:52px;font-size:26px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);">
             <div class="emoji-row" style="margin-top:10px;">
               ${suggestions.map(ic=>`<button type="button" data-icon="${ic}">${ic}</button>`).join('')}
             </div>
           </div>
           <div class="sheet-actions">
             <button class="cancel" id="np-cancel">取消</button>
-            <button class="save" id="np-save">创建</button>
+            <button class="save" id="np-save">${isEdit ? '保存' : '创建'}</button>
           </div>
         </div>
       </div>
@@ -843,28 +1023,37 @@ function renderModal(){
       const icon = iconInput.value.trim() || '📷';
       const saveBtn = root.querySelector('#np-save');
       saveBtn.disabled = true;
-      saveBtn.textContent = '创建中…';
+      saveBtn.textContent = isEdit ? '保存中…' : '创建中…';
       try{
-        const proj = { id: 'proj_'+Date.now(), name, icon, createdAt: Date.now(), count:0, lastDate:null };
-        projects.unshift(proj);
-        await saveProjects();
-        modal = null;
-        view = { name:'project', id: proj.id };
-        render();
+        if(isEdit){
+          existing.name = name;
+          existing.icon = icon;
+          await saveProjects();
+          modal = null;
+          render();
+        } else {
+          const proj = { id: 'proj_'+Date.now(), name, icon, createdAt: Date.now(), count:0, lastDate:null };
+          projects.unshift(proj);
+          await saveProjects();
+          modal = null;
+          view = { name:'project', id: proj.id };
+          render();
+        }
       }catch(e){
-        showToast('创建失败：' + e.message);
+        showToast((isEdit?'保存':'创建')+'失败：' + e.message);
         saveBtn.disabled = false;
-        saveBtn.textContent = '创建';
+        saveBtn.textContent = isEdit ? '保存' : '创建';
       }
     };
   }
 
   if(modal.type === 'addEntry'){
     if(entryDraft.date === null) entryDraft.date = todayStr();
+    const isEdit = !!entryDraft.editingDate;
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
-          <h2>添加记录</h2>
+          <h2>${isEdit ? '编辑记录' : '添加记录'}</h2>
           <div class="field">
             <label>日期${entryDraft.dateFromExif ? '（已根据照片拍摄时间自动填写）' : ''}</label>
             <input type="date" id="ae-date" value="${entryDraft.date}" max="${todayStr()}">
@@ -874,9 +1063,10 @@ function renderModal(){
             <div class="photo-picker" id="ae-picker-preview" style="display:${entryDraft.photo?'block':'none'};margin-bottom:10px;">
               <img id="ae-preview" src="${entryDraft.photo||''}">
             </div>
-            <div style="display:flex;gap:10px;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button type="button" class="chip-btn" id="ae-camera-btn">📷 拍照</button>
               <button type="button" class="chip-btn" id="ae-gallery-btn">🖼️ 从相册选择</button>
+              ${entryDraft.photo ? `<button type="button" class="chip-btn" id="ae-recrop-btn">✂️ 重新裁剪</button>` : ''}
             </div>
             <input type="file" id="ae-file-camera" accept="image/*" capture="environment" style="display:none;">
             <input type="file" id="ae-file-gallery" accept="image/*" style="display:none;">
@@ -914,8 +1104,15 @@ function renderModal(){
     root.querySelector('#ae-gallery-btn').onclick = () => root.querySelector('#ae-file-gallery').click();
     root.querySelector('#ae-file-camera').onchange = (e) => handleFile(e.target.files[0]);
     root.querySelector('#ae-file-gallery').onchange = (e) => handleFile(e.target.files[0]);
-    root.querySelector('#ae-cancel').onclick = () => { modal=null; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
+    const recropBtn = root.querySelector('#ae-recrop-btn');
+    if(recropBtn) recropBtn.onclick = () => {
+      entryDraft.date = root.querySelector('#ae-date').value;
+      entryDraft.note = root.querySelector('#ae-note').value;
+      modal = { type:'cropPhoto', projectId: modal.projectId, rawDataUrl: entryDraft.photo };
+      render();
+    };
+    root.querySelector('#ae-cancel').onclick = () => { modal=null; entryDraft = { date:null, note:'', photo:null, editingDate:null }; render(); };
+    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; entryDraft = { date:null, note:'', photo:null, editingDate:null }; render(); } };
     root.querySelector('#ae-save').onclick = async () => {
       const date = entryDraft.date;
       const note = entryDraft.note.trim();
@@ -927,6 +1124,13 @@ function renderModal(){
       try{
         const projectId = modal.projectId;
         const meta = await loadMeta(projectId);
+        const oldDate = entryDraft.editingDate;
+        if(oldDate && oldDate !== date){
+          // date changed while editing: move the record to the new key
+          const oldIdx = meta.findIndex(m=>m.date===oldDate);
+          if(oldIdx>=0) meta.splice(oldIdx,1);
+          await deletePhoto(projectId, oldDate);
+        }
         const idx = meta.findIndex(m=>m.date===date);
         if(idx>=0){ meta[idx].note = note; } else { meta.push({date, note}); }
         await saveMeta(projectId, meta);
@@ -936,7 +1140,7 @@ function renderModal(){
         proj.lastDate = meta.reduce((a,b)=> a>b.date?a:b.date, meta[0].date);
         await saveProjects();
         modal = null;
-        entryDraft = { date: null, note: '', photo: null };
+        entryDraft = { date: null, note: '', photo: null, editingDate: null };
         render();
       }catch(e){
         showToast('保存失败：' + e.message);
@@ -947,19 +1151,39 @@ function renderModal(){
   }
 
   if(modal.type === 'cropPhoto'){
-    const VW = Math.min(320, window.innerWidth - 64);
-    const VH = VW * (CROP_H / CROP_W);
+    const VW = Math.min(340, window.innerWidth - 64);
+    const VH = Math.min(420, Math.round(VW * 1.25));
+    const RATIOS = [
+      { key:'orig', label:'原图比例' },
+      { key:'free', label:'自由裁剪' },
+      { key:'1:1',  label:'1:1', v:1 },
+      { key:'3:4',  label:'3:4', v:3/4 },
+      { key:'4:3',  label:'4:3', v:4/3 },
+      { key:'9:16', label:'9:16', v:9/16 },
+    ];
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
-          <h2>调整照片位置</h2>
-          <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 14px;">拖动照片调整位置，用下方滑块缩放，尽量让每次拍摄的角度和范围保持一致，对比会更清楚。</p>
-          <div id="crop-viewport" style="position:relative;overflow:hidden;width:${VW}px;height:${VH}px;margin:0 auto 16px;border-radius:14px;background:#111;touch-action:none;">
-            <img id="crop-img" style="position:absolute;transform-origin:top left;user-select:none;-webkit-user-drag:none;" draggable="false">
+          <h2>裁剪照片</h2>
+          <p style="font-size:13px;color:var(--ink-soft);margin:-8px 0 14px;">拖动四角可以裁切范围，拖动框内可以移动，用滑块可以放大照片看得更细。尽量让每次拍摄的角度和范围保持一致，对比会更清楚。</p>
+          <div id="crop-stage" style="width:${VW}px;height:${VH}px;">
+            <img id="crop-img" draggable="false">
+            <div id="crop-box">
+              <div class="crop-handle nw" data-corner="nw"></div>
+              <div class="crop-handle ne" data-corner="ne"></div>
+              <div class="crop-handle sw" data-corner="sw"></div>
+              <div class="crop-handle se" data-corner="se"></div>
+            </div>
           </div>
           <div class="field">
-            <label>缩放</label>
-            <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" style="width:100%;">
+            <label>缩放（放大照片以便精细裁剪）</label>
+            <input type="range" id="crop-zoom" min="1" max="2.5" step="0.01" value="1" style="width:100%;">
+          </div>
+          <div class="field">
+            <label>裁剪比例</label>
+            <div class="ratio-row">
+              ${RATIOS.map(r=>`<button type="button" data-ratio="${r.key}" class="${r.key==='orig'?'sel':''}">${r.label}</button>`).join('')}
+            </div>
           </div>
           <div class="sheet-actions">
             <button class="cancel" id="crop-cancel">取消</button>
@@ -968,68 +1192,151 @@ function renderModal(){
         </div>
       </div>
     `;
-    const viewport = root.querySelector('#crop-viewport');
+    const stage = root.querySelector('#crop-stage');
     const imgEl = root.querySelector('#crop-img');
+    const boxEl = root.querySelector('#crop-box');
     const zoomSlider = root.querySelector('#crop-zoom');
-    let natW=0, natH=0, baseScale=1, z=1, focusX=0.5, focusY=0.5, dragging=false, startPX=0, startPY=0, startFX=0.5, startFY=0.5;
 
-    function clamp(val, min, max){ return min>max ? 0.5 : Math.min(max, Math.max(min, val)); }
-    function bounds(){
-      const dw = natW*baseScale*z, dh = natH*baseScale*z;
-      return {
-        dw, dh,
-        minX: dw>VW ? (VW/2)/dw : 0.5, maxX: dw>VW ? 1-(VW/2)/dw : 0.5,
-        minY: dh>VH ? (VH/2)/dh : 0.5, maxY: dh>VH ? 1-(VH/2)/dh : 0.5
-      };
+    let natW=0, natH=0, scale0=1, z=1, panX=0, panY=0;
+    let box = { x:0, y:0, w:VW, h:VH };
+    let ratioKey = 'orig', aspectValue = null; // aspectValue null => free
+
+    function imageRect(){
+      const scale = scale0*z;
+      const iw = natW*scale, ih = natH*scale;
+      const ix = (VW-iw)/2 + panX, iy = (VH-ih)/2 + panY;
+      return { ix, iy, iw, ih, scale };
     }
-    function update(){
-      const b = bounds();
-      focusX = clamp(focusX, b.minX, b.maxX);
-      focusY = clamp(focusY, b.minY, b.maxY);
-      imgEl.style.width = b.dw+'px';
-      imgEl.style.height = b.dh+'px';
-      imgEl.style.left = (VW/2 - focusX*b.dw)+'px';
-      imgEl.style.top = (VH/2 - focusY*b.dh)+'px';
+    function clampPan(){
+      const scale = scale0*z;
+      const iw = natW*scale, ih = natH*scale;
+      const maxPanX = Math.max(0, (iw-VW)/2 + 60);
+      const maxPanY = Math.max(0, (ih-VH)/2 + 60);
+      panX = Math.min(maxPanX, Math.max(-maxPanX, panX));
+      panY = Math.min(maxPanY, Math.max(-maxPanY, panY));
+    }
+    function clampBox(){
+      const r = imageRect();
+      box.w = Math.min(box.w, r.iw);
+      box.h = Math.min(box.h, r.ih);
+      box.x = Math.min(Math.max(box.x, r.ix), r.ix + r.iw - box.w);
+      box.y = Math.min(Math.max(box.y, r.iy), r.iy + r.ih - box.h);
+    }
+    function applyRatio(){
+      if(!natW) return;
+      const aspect = ratioKey==='orig' ? (natW/natH) : aspectValue;
+      if(aspect == null) return; // free: leave box as-is
+      const cx = box.x+box.w/2, cy = box.y+box.h/2;
+      const r = imageRect();
+      let w = Math.min(box.w, r.iw), h = w/aspect;
+      if(h > r.ih){ h = r.ih; w = h*aspect; }
+      if(w > r.iw){ w = r.iw; h = w/aspect; }
+      box = { x: cx-w/2, y: cy-h/2, w, h };
+      clampBox();
+    }
+    function paint(){
+      const r = imageRect();
+      imgEl.style.width = r.iw+'px'; imgEl.style.height = r.ih+'px';
+      imgEl.style.left = r.ix+'px'; imgEl.style.top = r.iy+'px';
+      boxEl.style.left = box.x+'px'; boxEl.style.top = box.y+'px';
+      boxEl.style.width = box.w+'px'; boxEl.style.height = box.h+'px';
     }
 
     loadImg(modal.rawDataUrl).then(img => {
       natW = img.naturalWidth; natH = img.naturalHeight;
-      baseScale = Math.max(VW/natW, VH/natH);
+      scale0 = Math.min(VW/natW, VH/natH);
       imgEl.src = modal.rawDataUrl;
-      update();
+      const r0 = imageRect();
+      box = { x:r0.ix, y:r0.iy, w:r0.iw, h:r0.ih };
+      paint();
     });
 
-    viewport.addEventListener('pointerdown', (e) => {
-      dragging = true; startPX = e.clientX; startPY = e.clientY; startFX = focusX; startFY = focusY;
-      try{ viewport.setPointerCapture(e.pointerId); }catch(err){}
+    root.querySelectorAll('[data-ratio]').forEach(btn=>{
+      btn.onclick = () => {
+        root.querySelectorAll('[data-ratio]').forEach(b=>b.classList.remove('sel'));
+        btn.classList.add('sel');
+        ratioKey = btn.dataset.ratio;
+        aspectValue = RATIOS.find(r=>r.key===ratioKey).v || null;
+        applyRatio();
+        paint();
+      };
     });
-    viewport.addEventListener('pointermove', (e) => {
-      if(!dragging || !natW) return;
-      const b = bounds();
+
+    zoomSlider.oninput = () => {
+      if(!natW) return;
+      z = parseFloat(zoomSlider.value);
+      clampPan();
+      clampBox();
+      paint();
+    };
+
+    let mode = null; // 'move' | 'resize' | 'pan'
+    let startPX=0, startPY=0, startBox=null, startPan=null, corner=null;
+
+    stage.addEventListener('pointerdown', (e) => {
+      if(!natW) return;
+      startPX = e.clientX; startPY = e.clientY;
+      const target = e.target;
+      if(target.classList.contains('crop-handle')){
+        mode = 'resize'; corner = target.dataset.corner; startBox = {...box};
+      } else if(target === boxEl){
+        mode = 'move'; startBox = {...box};
+      } else {
+        mode = 'pan'; startPan = { x:panX, y:panY };
+      }
+      try{ stage.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if(!mode || !natW) return;
       const dx = e.clientX - startPX, dy = e.clientY - startPY;
-      focusX = startFX - dx/b.dw;
-      focusY = startFY - dy/b.dh;
-      update();
+      if(mode === 'pan'){
+        panX = startPan.x + dx; panY = startPan.y + dy;
+        clampPan();
+        clampBox();
+      } else if(mode === 'move'){
+        box = { x:startBox.x+dx, y:startBox.y+dy, w:startBox.w, h:startBox.h };
+        clampBox();
+      } else if(mode === 'resize'){
+        const locked = ratioKey !== 'free';
+        const aspect = ratioKey==='orig' ? (natW/natH) : (aspectValue || (startBox.w/startBox.h));
+        let {x,y,w,h} = startBox;
+        if(corner==='se'){ w = startBox.w+dx; h = locked ? w/aspect : startBox.h+dy; }
+        else if(corner==='nw'){ w = startBox.w-dx; h = locked ? w/aspect : startBox.h-dy; x = startBox.x+startBox.w-w; y = startBox.y+startBox.h-h; }
+        else if(corner==='ne'){ w = startBox.w+dx; h = locked ? w/aspect : startBox.h-dy; y = startBox.y+startBox.h-h; }
+        else if(corner==='sw'){ w = startBox.w-dx; h = locked ? w/aspect : startBox.h+dy; x = startBox.x+startBox.w-w; }
+        w = Math.max(48, w); h = Math.max(48, h);
+        box = { x, y, w, h };
+        clampBox();
+      }
+      paint();
     });
-    ['pointerup','pointercancel','pointerleave'].forEach(evt => viewport.addEventListener(evt, () => { dragging=false; }));
-    zoomSlider.oninput = () => { if(!natW) return; z = parseFloat(zoomSlider.value); update(); };
+    ['pointerup','pointercancel','pointerleave'].forEach(evt => stage.addEventListener(evt, () => { mode = null; }));
 
-    root.querySelector('#crop-cancel').onclick = () => { modal = { type:'addEntry', projectId: modal.projectId }; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal = { type:'addEntry', projectId: modal.projectId }; render(); } };
+    const closeToEdit = () => { modal = { type:'addEntry', projectId: modal.projectId }; render(); };
+    root.querySelector('#crop-cancel').onclick = closeToEdit;
+    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay') closeToEdit(); };
     root.querySelector('#crop-confirm').onclick = async () => {
       const confirmBtn = root.querySelector('#crop-confirm');
       confirmBtn.disabled = true; confirmBtn.textContent = '处理中…';
       try{
         const img = await loadImg(modal.rawDataUrl);
-        const finalScale = Math.max(CROP_W/natW, CROP_H/natH) * z;
-        const dw = natW*finalScale, dh = natH*finalScale;
+        const r = imageRect();
+        const sx = Math.max(0, Math.min(natW-1, (box.x - r.ix)/r.scale));
+        const sy = Math.max(0, Math.min(natH-1, (box.y - r.iy)/r.scale));
+        const sw = Math.max(1, Math.min(natW-sx, box.w/r.scale));
+        const sh = Math.max(1, Math.min(natH-sy, box.h/r.scale));
+        let outW = sw, outH = sh;
+        if(Math.max(outW,outH) > CROP_OUT_MAX){
+          const s = CROP_OUT_MAX/Math.max(outW,outH);
+          outW *= s; outH *= s;
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = CROP_W; canvas.height = CROP_H;
+        canvas.width = Math.round(outW); canvas.height = Math.round(outH);
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, CROP_W/2 - focusX*dw, CROP_H/2 - focusY*dh, dw, dh);
-        entryDraft.photo = canvas.toDataURL('image/jpeg', 0.85);
-        modal = { type:'addEntry', projectId: modal.projectId };
-        render();
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        entryDraft.photo = canvas.toDataURL('image/jpeg', 0.9);
+        closeToEdit();
       }catch(e){
         showToast('裁剪失败，请重试');
         confirmBtn.disabled = false; confirmBtn.textContent = '完成';
@@ -1116,6 +1423,13 @@ function bindHome(){
       render();
     });
   });
+  document.querySelectorAll('[data-edit]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      modal = { type:'editProject', id: el.dataset.edit };
+      render();
+    });
+  });
 }
 
 function bindProject(proj, meta){
@@ -1140,24 +1454,16 @@ function bindProject(proj, meta){
     });
     const genBtn = document.getElementById('gen-compare-btn');
     if(genBtn) genBtn.onclick = async () => {
-      showToast('正在生成对比图…');
       const dates = Array.from(selected).sort();
-      const entries = [];
-      for(const d of dates){
-        const photo = await loadPhoto(proj.id, d);
-        const m = meta.find(x=>x.date===d);
-        entries.push({ date: d, note: m ? m.note : '', photo });
-      }
-      const image = await generateComparison(proj.name, entries);
-      view = { name:'compareResult', id: proj.id, image };
-      compareMode = false; selected = new Set();
+      compareCustom = dates.map(d => ({ date: d, weight: 1, focalX: 0.5 }));
+      view = { name:'compareCustomize', id: proj.id };
       render();
     };
   } else {
     const toggleBtn = document.getElementById('toggle-compare-btn');
     if(toggleBtn) toggleBtn.onclick = () => { if(meta.length<2) return; compareMode=true; selected=new Set(); render(); };
     document.getElementById('add-entry-btn').onclick = () => {
-      entryDraft = { date: todayStr(), note: '', photo: null };
+      entryDraft = { date: todayStr(), note: '', photo: null, editingDate: null };
       modal = {type:'addEntry', projectId: proj.id};
       render();
     };
@@ -1168,7 +1474,63 @@ function bindProject(proj, meta){
         render();
       });
     });
+    document.querySelectorAll('[data-edit-entry]').forEach(el=>{
+      el.addEventListener('click', async (e)=>{
+        const date = el.dataset.editEntry;
+        const m = meta.find(x=>x.date===date);
+        if(!m) return;
+        const photo = await loadPhoto(proj.id, date);
+        entryDraft = { date, note: m.note || '', photo, editingDate: date, dateFromExif:false };
+        modal = { type:'addEntry', projectId: proj.id };
+        render();
+      });
+    });
   }
+}
+
+async function bindCompareCustomize(proj, meta){
+  document.getElementById('back-btn').onclick = () => { view = { name:'project', id: proj.id }; compareMode = true; render(); };
+
+  compareCustom.forEach(async c => {
+    const photo = await loadPhoto(proj.id, c.date);
+    const imgEl = document.querySelector(`[data-cust-thumb="${c.date}"]`);
+    if(imgEl && photo) imgEl.src = photo;
+  });
+
+  document.querySelectorAll('[data-cust-weight]').forEach(el=>{
+    el.oninput = () => {
+      const c = compareCustom.find(x=>x.date===el.dataset.custWeight);
+      if(c) c.weight = parseFloat(el.value);
+    };
+  });
+  document.querySelectorAll('[data-cust-focal]').forEach(el=>{
+    el.oninput = () => {
+      const c = compareCustom.find(x=>x.date===el.dataset.custFocal);
+      if(c) c.focalX = parseFloat(el.value);
+      const preview = document.querySelector(`[data-cust-thumb="${el.dataset.custFocal}"]`);
+      if(preview) preview.style.objectPosition = Math.round(parseFloat(el.value)*100)+'% 50%';
+    };
+  });
+
+  document.getElementById('cust-gen-btn').onclick = async () => {
+    const btn = document.getElementById('cust-gen-btn');
+    btn.disabled = true; btn.textContent = '生成中…';
+    try{
+      const entries = [];
+      for(const c of compareCustom){
+        const photo = await loadPhoto(proj.id, c.date);
+        const m = meta.find(x=>x.date===c.date);
+        entries.push({ date:c.date, note: m ? m.note : '', photo, weight:c.weight, focalX:c.focalX });
+      }
+      const image = await generateComparison(proj.name, entries);
+      view = { name:'compareResult', id: proj.id, image };
+      compareMode = false; selected = new Set(); compareCustom = [];
+      render();
+    }catch(e){
+      showToast('生成失败：' + e.message);
+      btn.disabled = false; btn.textContent = '生成对比图';
+    }
+  };
 }
 
 function bindCompareResult(){
