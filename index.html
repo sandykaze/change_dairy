@@ -841,20 +841,7 @@ async function generateComparison(projectName, entries, orientation='horizontal'
 
     ctx.restore();
 
-    // 白色分割线
-    if(i < n - 1){
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; 
-      ctx.lineWidth = Math.max(1.5, Math.round(minDim * 0.006)); 
-      ctx.beginPath();
-      if(orientation === 'horizontal'){
-        ctx.moveTo(x + w, y);
-        ctx.lineTo(x + w, y + h);
-      } else {
-        ctx.moveTo(x, y + h);
-        ctx.lineTo(x + w, y + h);
-      }
-      ctx.stroke();
-    }
+
   });
 
   return canvas.toDataURL('image/png');
