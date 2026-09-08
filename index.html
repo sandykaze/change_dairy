@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>时序</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -475,6 +475,11 @@
     padding:10px 18px;border-radius:12px;font-size:13.5px;
     z-index:100;
   }
+
+/* Mobile tap behavior: prevent double-tap zoom on controls while keeping pinch zoom. */
+button, input, textarea, select, label {
+  touch-action: manipulation;
+}
 </style>
 
 <style id="premium-visual-refresh">
@@ -778,11 +783,32 @@ button{transition:opacity .12s ease,transform .12s ease}
 button:active{transform:scale(.985)}
 </style>
 
+
+<style id="mobile-input-zoom-fix">
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Keep compact controls compact without triggering focus zoom. */
+  input[type="range"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"] {
+    font-size: initial !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="app" id="app"></div>
 
 <script>
+/* Unlimited projects: no project-count limit is intentionally enforced. */
+
 let projects = [];
 let view = { name: 'home' };
 let compareMode = false;
@@ -899,6 +925,8 @@ async function loadPhoto(projectId, date){
 }
 async function deletePhoto(projectId, date){
   try{ await idbDelete('photo:'+projectId+':'+date); }catch(e){}
+  if(!Array.isArray(projects)) projects = [];
+  projects = projects.filter(p => p && p.id && typeof p.name === 'string');
 }
 
 function loadImg(src){
@@ -1373,6 +1401,7 @@ function renderModal(){
     root.querySelector('#np-cancel').onclick = () => { modal=null; render(); };
     root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
     root.querySelector('#np-save').onclick = async () => {
+      if(!isEdit && __creatingProject) return;
       const name = root.querySelector('#np-name').value.trim();
       if(!name){ showToast('请输入记录名称'); return; }
       const icon = iconInput.value.trim() || '📷';
@@ -1382,6 +1411,7 @@ function renderModal(){
       const prevName = isEdit ? existing.name : null;
       const prevIcon = isEdit ? existing.icon : null;
       try{
+        if(!isEdit) __creatingProject = true;
         if(isEdit){
           existing.name = name;
           existing.icon = icon;
@@ -1389,7 +1419,9 @@ function renderModal(){
           modal = null;
           render();
         } else {
-          const proj = { id: 'proj_'+Date.now(), name, icon, createdAt: Date.now(), count:0, lastDate:null };
+          const now = Date.now();
+          const uniqueId = 'proj_' + now.toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+          const proj = { id: uniqueId, name, icon, createdAt: now, count:0, lastDate:null };
           projects.unshift(proj);
           await saveProjects();
           modal = null;
@@ -1700,6 +1732,8 @@ function renderModal(){
         showToast('裁剪失败，请重试');
         confirmBtn.disabled = false; confirmBtn.textContent = '完成';
       }
+        __creatingProject = false;
+
     };
   }
 
@@ -1762,6 +1796,9 @@ function renderModal(){
     };
   }
 }
+
+/* Project creation safety patch */
+let __creatingProject = false;
 
 /* ---------------- Bindings ---------------- */
 
