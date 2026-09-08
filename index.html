@@ -1,984 +1,328 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>变化日记</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f4ef">
+<title>Trace — Personal Progress</title>
 <style>
-  :root{
-    --bg:#EEF0EA;
-    --surface:#FFFFFF;
-    --surface-alt:#F7F8F4;
-    --ink:#23291F;
-    --ink-soft:#5B6357;
-    --ink-faint:#8A9184;
-    --accent:#3E6B5C;
-    --accent-dark:#2C4F44;
-    --accent-soft:#DCE8E1;
-    --danger:#B5502E;
-    --border:#DEDFD6;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',system-ui,-apple-system,sans-serif;
-    -webkit-font-smoothing:antialiased;
-    min-height:100vh;
-    padding-bottom:40px;
-  }
-  .app{
-    max-width:460px;
-    margin:0 auto;
-    min-height:100vh;
-    background:var(--bg);
-    position:relative;
-  }
-  header.topbar{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    padding:22px 20px 16px;
-    position:sticky;
-    top:0;
-    background:var(--bg);
-    z-index:5;
-  }
-  header.topbar .back{
-    width:34px;height:34px;
-    border-radius:50%;
-    border:1px solid var(--border);
-    background:var(--surface);
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;
-    font-size:16px;
-    color:var(--ink);
-    flex-shrink:0;
-  }
-  header.topbar h1{
-    font-family:'Source Serif 4',Georgia,serif;
-    font-weight:600;
-    font-size:22px;
-    margin:0;
-    letter-spacing:-0.01em;
-    flex:1;
-    min-width:0;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-  }
-  header.topbar .sub{
-    font-size:13px;
-    color:var(--ink-soft);
-    margin-top:2px;
-  }
-  main{padding:0 20px 100px;}
+:root{
+  --bg:#f7f4ef;--card:#fffdfa;--ink:#292724;--muted:#918b82;--line:#e7e1d8;
+  --soft:#eee9e1;--accent:#8a7864;--danger:#9d5d55;
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);
+font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+button,input,textarea{font:inherit} button{cursor:pointer}
+.app{max-width:620px;margin:auto;min-height:100vh;padding-bottom:88px}
+header{padding:30px 20px 18px;display:flex;align-items:end;justify-content:space-between}
+h1{font-size:28px;letter-spacing:-.7px;margin:0;font-weight:650}
+.sub{font-size:13px;color:var(--muted);margin-top:5px}
+.iconbtn{border:1px solid var(--line);background:var(--card);width:42px;height:42px;border-radius:50%;font-size:20px}
+main{padding:0 16px}.section-title{font-size:13px;color:var(--muted);padding:4px 5px 10px}
+.project{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:10px;padding:17px;
+display:flex;gap:14px;align-items:center}
+.project-thumb{width:64px;height:64px;border-radius:13px;background:var(--soft);overflow:hidden;flex:none}
+.project-thumb img{width:100%;height:100%;object-fit:cover}.project-info{min-width:0;flex:1}
+.project-name{font-size:17px;font-weight:600}.project-meta{font-size:12px;color:var(--muted);margin-top:6px}
+.arrow{color:#aaa;font-size:20px}.empty{padding:70px 20px;text-align:center;color:var(--muted)}
+.fab{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);height:54px;padding:0 23px;border:0;border-radius:28px;background:var(--ink);color:white;font-weight:600;box-shadow:0 8px 28px #0001}
+.view{display:none}.view.active{display:block}.topbar{height:70px;padding:15px 16px;display:flex;align-items:center;gap:10px}
+.back{border:0;background:none;font-size:24px;padding:8px}.top-title{font-weight:650;font-size:18px;flex:1}
+.primary{border:0;background:var(--ink);color:#fff;border-radius:12px;padding:10px 14px;font-weight:600}
+.timeline{padding:0 16px}.entry{margin:0 0 25px}.date{font-size:14px;font-weight:650;margin:0 4px 9px}
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.photo-grid.one{grid-template-columns:1fr}
+.photo-grid img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:14px;background:#eee}
+.note{font-size:13px;color:#777;margin:9px 4px 0;line-height:1.55}
+.form{padding:0 18px}.label{font-size:13px;color:var(--muted);margin:20px 0 8px}
+input,textarea{width:100%;border:1px solid var(--line);background:var(--card);border-radius:13px;padding:13px;color:var(--ink);outline:none}
+textarea{min-height:100px;resize:vertical}.upload{border:1.5px dashed #cfc7bc;background:var(--card);border-radius:16px;min-height:170px;
+display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);position:relative;overflow:hidden}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer}.upload strong{display:block;color:var(--ink);margin-bottom:5px}
+.preview{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.preview div{position:relative}.preview img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}.remove{position:absolute;right:4px;top:4px;border:0;border-radius:50%;width:23px;height:23px;background:#0008;color:#fff}
+.savebar{padding:18px;position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%)}.savebar button{width:100%;height:48px}
+.choice-row{display:flex;gap:8px}.choice{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px;color:var(--muted)}
+.choice.selected{border-color:var(--ink);color:var(--ink);background:#eee9e1}
+.records{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.record{position:relative;border:1px solid var(--line);background:var(--card);border-radius:14px;overflow:hidden}
+.record img{width:100%;aspect-ratio:1;object-fit:cover;display:block}.record-body{padding:9px}.record-date{font-size:12px;font-weight:650}.record-note{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.check{position:absolute;right:8px;top:8px;width:25px;height:25px;border-radius:50%;border:1px solid #fff;background:#ffffffdd;color:transparent;display:flex;align-items:center;justify-content:center;font-size:14px}
+.record.selected .check{background:var(--ink);color:#fff}.record.selected{outline:2px solid var(--ink)}
+.hint{font-size:12px;color:var(--muted);margin:5px 2px 15px}
+.result-wrap{padding:8px 16px 30px}.compare{background:#fff;border-radius:4px;padding:12px;box-shadow:0 3px 15px #0000000d}
+.compare.vertical .compare-item{margin-bottom:12px}.compare.horizontal{display:flex;gap:8px;overflow:hidden}.compare.horizontal .compare-item{flex:1;min-width:0}
+.compare-img{width:100%;aspect-ratio:1;object-fit:cover;display:block;border-radius:2px}
+.compare-date{font-size:11px;font-weight:700;margin-top:7px}.compare-note{font-size:10px;color:#777;margin-top:3px;line-height:1.4}
+.actions{display:flex;gap:8px;margin-top:14px}.actions button{flex:1;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card)}.actions .dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+.small{font-size:12px;color:var(--muted)}
+@media(min-width:621px){.app{box-shadow:0 0 50px #00000008}.fab{position:fixed;max-width:300px}}
 
-  /* ---- Home / project list ---- */
-  .empty-state{
-    text-align:center;
-    padding:60px 24px;
-    color:var(--ink-soft);
-  }
-  .empty-state .glyph{font-size:38px;margin-bottom:14px;}
-  .empty-state p{font-size:15px;line-height:1.6;margin:0;}
+.editor{padding:0 16px 24px}.editor-stage{background:#e9e4dc;border-radius:16px;padding:12px;overflow:auto}
+.canvas-wrap{position:relative;margin:auto;background:#fffdfa;overflow:hidden;touch-action:none}
+.canvas-item{position:absolute;transform-origin:center center;user-select:none;touch-action:none}
+.canvas-item img{display:block;max-width:none;pointer-events:none}
+.canvas-label{position:absolute;left:0;bottom:-38px;font-size:12px;white-space:nowrap;color:#292724}
+.edit-controls{display:flex;gap:8px;margin-top:12px}.edit-controls button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;height:42px}
+.size-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:var(--muted)}
+.size-row input{padding:0;border:0;background:transparent}
 
-  .project-card{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:16px;
-    padding:16px;
-    margin-bottom:12px;
-    cursor:pointer;
-    transition:transform .12s ease, border-color .12s ease;
-  }
-  .project-card:active{transform:scale(0.98);}
-  .project-card .icon{
-    width:48px;height:48px;
-    border-radius:12px;
-    background:var(--accent-soft);
-    display:flex;align-items:center;justify-content:center;
-    font-size:24px;
-    flex-shrink:0;
-  }
-  .project-card .info{flex:1;min-width:0;}
-  .project-card .info .name{
-    font-weight:600;
-    font-size:16px;
-    margin-bottom:3px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .project-card .info .meta{
-    font-size:13px;
-    color:var(--ink-soft);
-  }
-  .project-card .del{
-    color:var(--ink-faint);
-    font-size:13px;
-    padding:6px 8px;
-    flex-shrink:0;
-  }
-
-  .fab{
-    position:fixed;
-    left:50%;
-    bottom:28px;
-    transform:translateX(-50%);
-    max-width:420px;
-    width:calc(100% - 40px);
-    background:var(--accent);
-    color:#fff;
-    border:none;
-    border-radius:16px;
-    padding:16px;
-    font-size:15px;
-    font-weight:600;
-    font-family:inherit;
-    cursor:pointer;
-    box-shadow:0 8px 20px rgba(44,79,68,0.25);
-    z-index:20;
-  }
-  .fab:active{background:var(--accent-dark);}
-  .fab.secondary{
-    background:var(--surface);
-    color:var(--accent-dark);
-    border:1.5px solid var(--accent);
-    box-shadow:none;
-  }
-  .fab-row{
-    position:fixed;
-    left:50%;
-    bottom:28px;
-    transform:translateX(-50%);
-    max-width:420px;
-    width:calc(100% - 40px);
-    display:flex;
-    gap:10px;
-    z-index:20;
-  }
-  .fab-row .fab{position:static;transform:none;width:auto;flex:1;}
-
-  /* ---- Timeline (project detail) ---- */
-  .toolbar{
-    display:flex;
-    gap:10px;
-    margin-bottom:16px;
-  }
-  .chip-btn{
-    flex:1;
-    padding:10px 12px;
-    border-radius:12px;
-    border:1px solid var(--border);
-    background:var(--surface);
-    color:var(--ink);
-    font-family:inherit;
-    font-size:13.5px;
-    font-weight:600;
-    cursor:pointer;
-    text-align:center;
-  }
-  .chip-btn.active{
-    background:var(--accent);
-    border-color:var(--accent);
-    color:#fff;
-  }
-
-  .entry-row{
-    display:flex;
-    gap:14px;
-    align-items:center;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:16px;
-    padding:12px;
-    margin-bottom:10px;
-  }
-  .entry-row .thumb{
-    width:64px;height:80px;
-    border-radius:10px;
-    object-fit:cover;
-    background:var(--surface-alt);
-    flex-shrink:0;
-  }
-  .entry-row .info{flex:1;min-width:0;}
-  .entry-row .date{font-weight:600;font-size:14.5px;}
-  .entry-row .note{
-    font-size:13px;
-    color:var(--ink-soft);
-    margin-top:3px;
-    overflow:hidden;text-overflow:ellipsis;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  }
-  .entry-row .check{
-    width:24px;height:24px;
-    border-radius:50%;
-    border:2px solid var(--border);
-    flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    color:#fff;
-    font-size:13px;
-  }
-  .entry-row .check.checked{
-    background:var(--accent);
-    border-color:var(--accent);
-  }
-  .entry-row .del-x{
-    color:var(--ink-faint);
-    font-size:18px;
-    padding:4px 6px;
-    flex-shrink:0;
-  }
-
-  .select-bar{
-    position:fixed;
-    left:50%;bottom:28px;
-    transform:translateX(-50%);
-    max-width:420px;width:calc(100% - 40px);
-    background:var(--ink);
-    color:#fff;
-    border-radius:16px;
-    padding:14px 18px;
-    display:flex;align-items:center;justify-content:space-between;
-    z-index:20;
-    box-shadow:0 8px 24px rgba(0,0,0,0.2);
-  }
-  .select-bar span{font-size:13.5px;color:#D8DDD4;}
-  .select-bar button{
-    background:var(--accent);
-    color:#fff;
-    border:none;
-    border-radius:10px;
-    padding:9px 16px;
-    font-family:inherit;
-    font-weight:600;
-    font-size:13.5px;
-  }
-  .select-bar button:disabled{background:#4B5049;color:#8C9186;}
-
-  /* ---- Modal ---- */
-  .overlay{
-    position:fixed;inset:0;
-    background:rgba(20,24,18,0.55);
-    display:flex;align-items:flex-end;justify-content:center;
-    z-index:50;
-  }
-  .sheet{
-    width:100%;max-width:460px;
-    background:var(--surface);
-    border-radius:22px 22px 0 0;
-    padding:22px 20px 26px;
-    max-height:88vh;
-    overflow-y:auto;
-  }
-  .sheet h2{
-    font-family:'Source Serif 4',Georgia,serif;
-    font-size:20px;
-    margin:0 0 18px;
-  }
-  .field{margin-bottom:16px;}
-  .field label{
-    display:block;
-    font-size:13px;
-    font-weight:600;
-    color:var(--ink-soft);
-    margin-bottom:6px;
-  }
-  .field input[type=text], .field input[type=date], .field textarea{
-    width:100%;
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:11px 13px;
-    font-family:inherit;
-    font-size:15px;
-    background:var(--surface-alt);
-    color:var(--ink);
-  }
-  .field textarea{resize:vertical;min-height:64px;}
-  .emoji-row{display:flex;gap:8px;flex-wrap:wrap;}
-  .emoji-row button{
-    width:44px;height:44px;
-    border-radius:12px;
-    border:1.5px solid var(--border);
-    background:var(--surface-alt);
-    font-size:20px;
-    cursor:pointer;
-  }
-  .emoji-row button.sel{border-color:var(--accent);background:var(--accent-soft);}
-
-  .photo-picker{
-    border:1.5px dashed var(--border);
-    border-radius:14px;
-    padding:18px;
-    text-align:center;
-    color:var(--ink-soft);
-    font-size:14px;
-    cursor:pointer;
-    background:var(--surface-alt);
-  }
-  .photo-picker img{
-    max-width:100%;
-    max-height:280px;
-    border-radius:10px;
-    display:block;
-    margin:0 auto;
-  }
-  .sheet-actions{display:flex;gap:10px;margin-top:6px;}
-  .sheet-actions button{
-    flex:1;
-    padding:13px;
-    border-radius:12px;
-    font-family:inherit;
-    font-weight:600;
-    font-size:14.5px;
-    border:none;
-    cursor:pointer;
-  }
-  .sheet-actions .cancel{background:var(--surface-alt);color:var(--ink-soft);border:1px solid var(--border);}
-  .sheet-actions .save{background:var(--accent);color:#fff;}
-  .sheet-actions .save:disabled{background:#B9C4BB;color:#fff;}
-
-  .compare-result img{width:100%;border-radius:12px;display:block;}
-  .toast{
-    position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
-    background:var(--ink);color:#fff;
-    padding:10px 18px;border-radius:12px;font-size:13.5px;
-    z-index:100;
-  }
+.compare-editor{background:#e8e2d9;border-radius:16px;padding:12px;overflow:hidden}
+.edit-toolbar{display:flex;gap:7px;overflow:auto;padding:4px 0 10px}
+.edit-toolbar button{white-space:nowrap;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 11px;font-size:12px}
+.edit-toolbar button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.edit-stage{position:relative;background:#fffdfa;border-radius:10px;overflow:hidden;min-height:360px;touch-action:none}
+.edit-stage canvas{width:100%;height:auto;display:block;touch-action:none}
+.edit-controls{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:10px;padding:12px}
+.range-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.range-row input{padding:0;border:0;background:transparent;flex:1}
+.range-value{width:40px;text-align:right;color:var(--ink)}
+.editor-help{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
+.date-source{font-size:11px;color:var(--muted);margin-top:6px}
 </style>
 </head>
 <body>
-<div class="app" id="app"></div>
+<div class="app">
+  <section id="home" class="view active">
+    <header><div><h1>Trace</h1><div class="sub">记录每一个变化</div></div><button class="iconbtn" onclick="openNewProject()">＋</button></header>
+    <main><div class="section-title">我的项目</div><div id="projectList"></div></main>
+    <button class="fab" onclick="openNewProject()">＋ 新建项目</button>
+  </section>
+
+  <section id="detail" class="view">
+    <div class="topbar"><button class="back" onclick="go('home')">‹</button><div class="top-title" id="detailTitle"></div><button class="primary" onclick="openAdd()">＋ 记录</button></div>
+    <div class="timeline" id="timeline"></div>
+    <div class="savebar"><button class="primary" onclick="openCompare()">生成对比</button></div>
+  </section>
+
+  <section id="newProject" class="view">
+    <div class="topbar"><button class="back" onclick="go('home')">‹</button><div class="top-title">新建项目</div></div>
+    <div class="form">
+      <div class="label">项目名称</div><input id="projectName" placeholder="例如：牙齿 / Face / 体态">
+      <div class="label">类型</div>
+      <div class="choice-row" id="typeChoices">
+        <button class="choice selected" onclick="selectType(this)">牙齿</button><button class="choice" onclick="selectType(this)">脸部</button>
+        <button class="choice" onclick="selectType(this)">体态</button><button class="choice" onclick="selectType(this)">自定义</button>
+      </div>
+      <div class="savebar"><button class="primary" onclick="createProject()">创建项目</button></div>
+    </div>
+  </section>
+
+  <section id="add" class="view">
+    <div class="topbar"><button class="back" onclick="go('detail')">‹</button><div class="top-title">添加记录</div></div>
+    <div class="form">
+      <div class="label">日期</div><input type="date" id="recordDate"><div class="date-source" id="dateSource">选择照片后，会优先读取照片的拍摄日期</div>
+      <div class="label">照片 <span class="small">最多 6 张</span></div>
+      <div class="upload"><input id="photoInput" type="file" accept="image/*" multiple onchange="handleFiles(event)"><div><strong>＋ 添加照片</strong>从相册选择照片</div></div>
+      <div class="preview" id="preview"></div>
+      <div class="label">备注 <span class="small">可选</span></div><textarea id="recordNote" placeholder="写一点今天的情况…"></textarea>
+      <div class="savebar"><button class="primary" onclick="saveRecord()">保存记录</button></div>
+    </div>
+  </section>
+
+  <section id="compare" class="view">
+    <div class="topbar"><button class="back" onclick="go('detail')">‹</button><div class="top-title">选择对比</div><button class="primary" onclick="makeCompare()">生成</button></div>
+    <div class="form">
+      <div class="hint">选择 2–5 个日期，按时间顺序排列</div>
+      <div class="records" id="recordChoices"></div>
+      <div class="label">排列方式</div>
+      <div class="choice-row"><button id="vBtn" class="choice selected" onclick="setLayout('vertical')">纵向</button><button id="hBtn" class="choice" onclick="setLayout('horizontal')">横向</button></div>
+    </div>
+  </section>
+
+  <section id="result" class="view">
+    <div class="topbar"><button class="back" onclick="go('compare')">‹</button><div class="top-title">对比图</div></div>
+    <div class="editor">
+      <div class="editor-stage"><div id="editStage" class="canvas-wrap"></div></div>
+      <div class="size-row"><span>选中照片大小</span><input id="sizeSlider" type="range" min="60" max="160" value="100" oninput="scaleSelected(this.value)"></div>
+      <div class="edit-controls"><button onclick="resetEditor()">恢复布局</button><button onclick="go('compare')">重新选择</button><button class="dark" onclick="downloadEdited()">保存图片</button></div>
+      <div class="small" style="margin-top:10px">提示：拖动照片调整位置，双指缩放或用下方滑杆调整大小。</div>
+    </div>
+  </section>
+</div>
 
 <script>
-let projects = [];
-let view = { name: 'home' };           // {name:'home'} | {name:'project', id} | {name:'compareResult', id, image}
-let compareMode = false;
-let selected = new Set();
-let modal = null;                       // {type:'newProject'} | {type:'addEntry', projectId} | {type:'confirmDeleteProject', id} etc
-let toastTimer = null;
-
-function fmtDate(d){
-  const [y,m,day] = d.split('-');
-  return `${y}年${parseInt(m)}月${parseInt(day)}日`;
+const KEY='trace_data_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"projects":[]}');
+let currentProject=null, files=[], selected=[], layout='vertical', compareUrls=[];
+let editorRecords=[], editorIndex=0, editorScale=[], editorOffset=[], editorCanvas=null, editorCtx=null, editorImages=[];
+let dragState=null, pinchState=null;
+const $=id=>document.getElementById(id);
+function persist(){localStorage.setItem(KEY,JSON.stringify(data))}
+function go(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');window.scrollTo(0,0)}
+function openNewProject(){ $('projectName').value=''; go('newProject') }
+function selectType(el){document.querySelectorAll('#typeChoices .choice').forEach(x=>x.classList.remove('selected'));el.classList.add('selected')}
+function createProject(){
+ const name=$('projectName').value.trim(); if(!name){alert('请输入项目名称');return}
+ const type=document.querySelector('#typeChoices .selected').textContent;
+ const p={id:Date.now(),name,type,records:[]};data.projects.unshift(p);persist();openProject(p.id)
 }
-function fmtDateShort(d){
-  const [y,m,day] = d.split('-');
-  return `${y}-${m}-${day}`;
-}
-function todayStr(){
-  const d = new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function showToast(msg){
-  clearTimeout(toastTimer);
-  let t = document.getElementById('toast');
-  if(!t){ t = document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
-  t.textContent = msg;
-  t.style.display='block';
-  toastTimer = setTimeout(()=>{ t.style.display='none'; }, 1800);
-}
-
-/* ---- IndexedDB storage (works when this file is opened directly in a browser) ---- */
-const DB_NAME = 'change-diary-db';
-const STORE = 'kv';
-let dbPromise = null;
-function openDB(){
-  if(dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject)=>{
-    if(!window.indexedDB){ reject(new Error('此浏览器不支持本地存储')); return; }
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return dbPromise;
-}
-async function idbGet(key){
-  const db = await openDB();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function idbSet(key, value){
-  const db = await openDB();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(value, key);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-async function idbDelete(key){
-  const db = await openDB();
-  return new Promise((resolve, reject)=>{
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(key);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function loadProjects(){
-  try{
-    const r = await idbGet('projects');
-    projects = r || [];
-  }catch(e){ projects = []; showToast('本地存储不可用：' + e.message); }
-}
-async function saveProjects(){
-  await idbSet('projects', projects);
-}
-async function loadMeta(projectId){
-  try{
-    const list = await idbGet('meta:'+projectId);
-    return (list || []).sort((a,b)=> b.date.localeCompare(a.date));
-  }catch(e){ return []; }
-}
-async function saveMeta(projectId, list){
-  await idbSet('meta:'+projectId, list);
-}
-async function savePhoto(projectId, date, dataUrl){
-  await idbSet('photo:'+projectId+':'+date, dataUrl);
-}
-async function loadPhoto(projectId, date){
-  try{
-    const r = await idbGet('photo:'+projectId+':'+date);
-    return r || null;
-  }catch(e){ return null; }
-}
-async function deletePhoto(projectId, date){
-  try{ await idbDelete('photo:'+projectId+':'+date); }catch(e){}
-}
-
-function compressImage(file, maxDim=1000, quality=0.75){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        if(w > h){ if(w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; } }
-        else { if(h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; } }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = reader.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImg(src){
-  return new Promise((resolve, reject)=>{
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-function roundRectPath(ctx, x, y, w, h, r){
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.arcTo(x+w, y, x+w, y+h, r);
-  ctx.arcTo(x+w, y+h, x, y+h, r);
-  ctx.arcTo(x, y+h, x, y, r);
-  ctx.arcTo(x, y, x+w, y, r);
-  ctx.closePath();
-}
-
-function wrapText(ctx, text, maxWidth, maxLines){
-  if(!text) return [];
-  const chars = Array.from(text);
-  const lines = [];
-  let line = '';
-  for(let i=0;i<chars.length;i++){
-    const test = line + chars[i];
-    if(ctx.measureText(test).width > maxWidth && line.length>0){
-      lines.push(line);
-      line = chars[i];
-      if(lines.length === maxLines) break;
-    } else {
-      line = test;
-    }
-  }
-  if(lines.length < maxLines && line){ lines.push(line); }
-  if(lines.length === maxLines){
-    let last = lines[maxLines-1];
-    while(ctx.measureText(last+'…').width > maxWidth && last.length>1){
-      last = last.slice(0,-1);
-    }
-    if(Array.from(text).length > lines.join('').length){
-      lines[maxLines-1] = last + '…';
-    }
-  }
-  return lines;
-}
-
-async function generateComparison(projectName, entries){
-  const FRAME_W = 280, FRAME_H = 360, GAP = 22, LABEL_H = 78, TITLE_H = 60, PAD = 22;
-  const n = entries.length;
-  const width = n*FRAME_W + (n+1)*GAP;
-  const height = TITLE_H + FRAME_H + LABEL_H + GAP*2 + PAD;
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = '#F7F8F4';
-  ctx.fillRect(0,0,width,height);
-
-  ctx.fillStyle = '#23291F';
-  ctx.font = '600 26px "Source Serif 4", Georgia, serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 12);
-  ctx.strokeStyle = '#DEDFD6';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, TITLE_H); ctx.lineTo(width-PAD, TITLE_H); ctx.stroke();
-
-  for(let i=0;i<n;i++){
-    const e = entries[i];
-    const x = GAP + i*(FRAME_W+GAP);
-    const y = TITLE_H + GAP;
-    ctx.save();
-    roundRectPath(ctx, x, y, FRAME_W, FRAME_H, 16);
-    ctx.clip();
-    ctx.fillStyle = '#E4E7DF';
-    ctx.fillRect(x,y,FRAME_W,FRAME_H);
-    if(e.photo){
-      const img = await loadImg(e.photo);
-      const scale = Math.max(FRAME_W/img.width, FRAME_H/img.height);
-      const dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, x + (FRAME_W-dw)/2, y + (FRAME_H-dh)/2, dw, dh);
-    }
-    ctx.restore();
-    ctx.strokeStyle = '#DEDFD6';
-    roundRectPath(ctx, x, y, FRAME_W, FRAME_H, 16);
-    ctx.stroke();
-
-    const labelY = y + FRAME_H + 26;
-    ctx.fillStyle = '#23291F';
-    ctx.font = '700 17px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(fmtDateShort(e.date), x + FRAME_W/2, labelY);
-
-    if(e.note){
-      ctx.fillStyle = '#5B6357';
-      ctx.font = '400 13px Inter, sans-serif';
-      const lines = wrapText(ctx, e.note, FRAME_W - 20, 2);
-      lines.forEach((ln, li) => {
-        ctx.fillText(ln, x + FRAME_W/2, labelY + 22 + li*17);
-      });
-    }
-  }
-  return canvas.toDataURL('image/png');
-}
-
-/* ---------------- Rendering ---------------- */
-
-async function render(){
-  const app = document.getElementById('app');
-  if(view.name === 'home'){
-    app.innerHTML = renderHome();
-    bindHome();
-  } else if(view.name === 'project'){
-    const proj = projects.find(p=>p.id===view.id);
-    const meta = await loadMeta(view.id);
-    app.innerHTML = renderProject(proj, meta);
-    bindProject(proj, meta);
-  } else if(view.name === 'compareResult'){
-    app.innerHTML = renderCompareResult();
-    bindCompareResult();
-  }
-  if(modal){ renderModal(); } else { const m = document.getElementById('modal-root'); if(m) m.remove(); }
-}
-
+function openProject(id){currentProject=data.projects.find(p=>p.id===id);$('detailTitle').textContent=currentProject.name;renderTimeline();go('detail')}
 function renderHome(){
-  let list = '';
-  if(projects.length === 0){
-    list = `<div class="empty-state">
-      <div class="glyph">📔</div>
-      <p>还没有项目。<br>新建一个开始记录变化，比如牙齿、脸部或体态。</p>
-    </div>`;
-  } else {
-    list = projects.map(p => `
-      <div class="project-card" data-id="${p.id}">
-        <div class="icon">${p.icon}</div>
-        <div class="info">
-          <div class="name">${escapeHtml(p.name)}</div>
-          <div class="meta">${p.lastDate ? '最近记录 ' + fmtDateShort(p.lastDate) : '暂无记录'} · ${p.count||0} 条</div>
-        </div>
-        <div class="del" data-del="${p.id}">删除</div>
-      </div>
-    `).join('');
-  }
-  return `
-    <header class="topbar"><h1>变化日记</h1></header>
-    <main>${list}</main>
-    <button class="fab" id="new-project-btn">＋ 新建项目</button>
-  `;
-}
-
-function renderProject(proj, meta){
-  let rows = '';
-  if(meta.length === 0){
-    rows = `<div class="empty-state">
-      <div class="glyph">${proj.icon}</div>
-      <p>还没有记录，点击下方按钮添加第一张照片。</p>
-    </div>`;
-  } else {
-    rows = meta.map(e => `
-      <div class="entry-row" data-date="${e.date}">
-        ${compareMode ? `<div class="check ${selected.has(e.date)?'checked':''}" data-check="${e.date}">${selected.has(e.date)?'✓':''}</div>` : ''}
-        <img class="thumb" data-thumb="${e.date}" src="" alt="">
-        <div class="info">
-          <div class="date">${fmtDate(e.date)}</div>
-          ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
-        </div>
-        ${!compareMode ? `<div class="del-x" data-del-entry="${e.date}">✕</div>` : ''}
-      </div>
-    `).join('');
-  }
-
-  const bottomBar = compareMode
-    ? `<div class="select-bar">
-        <span>已选 ${selected.size}/5（至少选 2 个日期）</span>
-        <button id="gen-compare-btn" ${selected.size>=2 && selected.size<=5 ? '' : 'disabled'}>生成对比图</button>
-       </div>`
-    : `<div class="fab-row">
-        <button class="fab secondary" id="toggle-compare-btn" ${meta.length<2?'disabled style="opacity:.5"':''}>对比</button>
-        <button class="fab" id="add-entry-btn">＋ 记录今天</button>
-       </div>`;
-
-  return `
-    <header class="topbar">
-      <div class="back" id="back-btn">←</div>
-      <div style="flex:1;min-width:0;">
-        <h1>${escapeHtml(proj.name)}</h1>
-      </div>
-    </header>
-    <main>
-      ${compareMode ? `<div class="toolbar"><button class="chip-btn active" id="cancel-compare-btn">取消对比选择</button></div>` : ''}
-      ${rows}
-    </main>
-    ${bottomBar}
-  `;
-}
-
-function renderCompareResult(){
-  return `
-    <header class="topbar">
-      <div class="back" id="back-btn">←</div>
-      <h1>对比图</h1>
-    </header>
-    <main>
-      <div class="compare-result">
-        <img src="${view.image}" alt="对比图">
-      </div>
-      <div class="fab-row" style="position:static;margin-top:20px;width:100%;">
-        <a class="fab secondary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;" href="${view.image}" download="对比图-${Date.now()}.png">下载图片</a>
-      </div>
-    </main>
-  `;
-}
-
-function escapeHtml(s){
-  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-/* ---------------- Modal rendering ---------------- */
-
-function renderModal(){
-  let existing = document.getElementById('modal-root');
-  if(existing) existing.remove();
-  const root = document.createElement('div');
-  root.id = 'modal-root';
-  document.body.appendChild(root);
-
-  if(modal.type === 'newProject'){
-    const suggestions = ['📷','🦷','😊','🧍','💪','📝','👁️','🖐️','🦵','💇'];
-    root.innerHTML = `
-      <div class="overlay" id="modal-overlay">
-        <div class="sheet">
-          <h2>新建项目</h2>
-          <div class="field">
-            <label>项目名称</label>
-            <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态">
-          </div>
-          <div class="field">
-            <label>图标（点击输入框可用手机自带的表情键盘，输入任意 emoji）</label>
-            <input type="text" id="np-icon" value="📷" maxlength="4" style="width:64px;height:52px;font-size:26px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);">
-            <div class="emoji-row" style="margin-top:10px;">
-              ${suggestions.map(ic=>`<button type="button" data-icon="${ic}">${ic}</button>`).join('')}
-            </div>
-          </div>
-          <div class="sheet-actions">
-            <button class="cancel" id="np-cancel">取消</button>
-            <button class="save" id="np-save">创建</button>
-          </div>
-        </div>
-      </div>
-    `;
-    const iconInput = root.querySelector('#np-icon');
-    root.querySelectorAll('[data-icon]').forEach(btn=>{
-      btn.onclick = () => { iconInput.value = btn.dataset.icon; };
-    });
-    root.querySelector('#np-cancel').onclick = () => { modal=null; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
-    root.querySelector('#np-save').onclick = async () => {
-      const name = root.querySelector('#np-name').value.trim();
-      if(!name){ showToast('请输入项目名称'); return; }
-      const icon = iconInput.value.trim() || '📷';
-      const saveBtn = root.querySelector('#np-save');
-      saveBtn.disabled = true;
-      saveBtn.textContent = '创建中…';
-      try{
-        const proj = { id: 'proj_'+Date.now(), name, icon, createdAt: Date.now(), count:0, lastDate:null };
-        projects.unshift(proj);
-        await saveProjects();
-        modal = null;
-        view = { name:'project', id: proj.id };
-        render();
-      }catch(e){
-        showToast('创建失败：' + e.message);
-        saveBtn.disabled = false;
-        saveBtn.textContent = '创建';
+ const el=$('projectList');el.innerHTML='';
+ if(!data.projects.length){el.innerHTML='<div class="empty">还没有项目<br><br>从一个你想记录的变化开始。</div>';return}
+ data.projects.forEach(p=>{
+  const latest=[...p.records].sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const thumb=latest?.photos?.[0];
+  const div=document.createElement('div');div.className='project';div.onclick=()=>openProject(p.id);
+  div.innerHTML=`<div class="project-thumb">${thumb?`<img src="${thumb}">`:''}</div><div class="project-info"><div class="project-name">${esc(p.name)}</div><div class="project-meta">${p.records.length} 次记录${p.records.length?' · 最近 '+p.records.sort((a,b)=>b.date.localeCompare(a.date))[0].date:''}</div></div><div class="arrow">›</div>`;
+  el.appendChild(div);
+ })}
+function renderTimeline(){
+ const el=$('timeline');el.innerHTML='';
+ const rs=[...currentProject.records].sort((a,b)=>b.date.localeCompare(a.date));
+ if(!rs.length){el.innerHTML='<div class="empty">还没有记录<br><br>点击右上角「＋ 记录」开始。</div>';return}
+ rs.forEach(r=>{
+  const e=document.createElement('div');e.className='entry';
+  e.innerHTML=`<div class="date">${formatDate(r.date)}</div><div class="photo-grid ${r.photos.length===1?'one':''}">${r.photos.map(x=>`<img src="${x}">`).join('')}</div>${r.note?`<div class="note">${esc(r.note)}</div>`:''}`;
+  el.appendChild(e);
+ })}
+function openAdd(){files=[];$('preview').innerHTML='';$('recordDate').value=new Date().toISOString().slice(0,10);$('recordDate').dataset.manual='';$('recordDate').onchange=()=>{$('recordDate').dataset.manual='1'};$('recordNote').value='';$('photoInput').value='';go('add')}
+async function getPhotoDate(file){
+  try{
+    const buf=await file.arrayBuffer(), view=new DataView(buf);
+    if(view.getUint16(0)!==0xFFD8)return null;
+    let o=2;
+    while(o+4<view.byteLength){
+      if(view.getUint8(o)!==0xFF){o++;continue}
+      const marker=view.getUint8(o+1), len=view.getUint16(o+2);
+      if(marker===0xE1){
+        const start=o+4;
+        if(view.getUint32(start)===0x45786966 && view.getUint16(start+4)===0){
+          const t=start+6, little=view.getUint16(t)===0x4949;
+          const u16=(x)=>view.getUint16(x,little), u32=(x)=>view.getUint32(x,little);
+          const ifd=t+u32(t+4), count=u16(ifd);
+          for(let i=0;i<count;i++){
+            const e=ifd+2+i*12, tag=u16(e), type=u16(e+2), n=u32(e+4);
+            if(tag===0x9003 || tag===0x0132){
+              const off=n*({1:1,2:1,3:2,4:4,5:8}[type]||1)>4?u32(e+8):e+8;
+              let str='';for(let j=0;j<19;j++)str+=String.fromCharCode(view.getUint8(off+j));
+              const m=str.match(/(\d{4})[:\-](\d{2})[:\-](\d{2})/);
+              if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+            }
+          }
+        }
       }
-    };
-  }
-
-  if(modal.type === 'addEntry'){
-    root.innerHTML = `
-      <div class="overlay" id="modal-overlay">
-        <div class="sheet">
-          <h2>添加记录</h2>
-          <div class="field">
-            <label>日期</label>
-            <input type="date" id="ae-date" value="${todayStr()}" max="${todayStr()}">
-          </div>
-          <div class="field">
-            <label>照片</label>
-            <div class="photo-picker" id="ae-picker-preview" style="display:none;margin-bottom:10px;">
-              <img id="ae-preview">
-            </div>
-            <div style="display:flex;gap:10px;">
-              <button type="button" class="chip-btn" id="ae-camera-btn">📷 拍照</button>
-              <button type="button" class="chip-btn" id="ae-gallery-btn">🖼️ 从相册选择</button>
-            </div>
-            <input type="file" id="ae-file-camera" accept="image/*" capture="environment" style="display:none;">
-            <input type="file" id="ae-file-gallery" accept="image/*" style="display:none;">
-          </div>
-          <div class="field">
-            <label>备注（可选）</label>
-            <textarea id="ae-note" placeholder="例如：刷牙后出血明显减少"></textarea>
-          </div>
-          <div class="sheet-actions">
-            <button class="cancel" id="ae-cancel">取消</button>
-            <button class="save" id="ae-save" disabled>保存</button>
-          </div>
-        </div>
-      </div>
-    `;
-    let compressedData = null;
-    const handleFile = async (file) => {
-      if(!file) return;
-      showToast('正在处理照片…');
-      try{
-        compressedData = await compressImage(file);
-        const img = root.querySelector('#ae-preview');
-        img.src = compressedData;
-        root.querySelector('#ae-picker-preview').style.display = 'block';
-        root.querySelector('#ae-save').disabled = false;
-      }catch(e){
-        showToast('照片处理失败，请换一张试试');
-      }
-    };
-    root.querySelector('#ae-camera-btn').onclick = () => root.querySelector('#ae-file-camera').click();
-    root.querySelector('#ae-gallery-btn').onclick = () => root.querySelector('#ae-file-gallery').click();
-    root.querySelector('#ae-file-camera').onchange = (e) => handleFile(e.target.files[0]);
-    root.querySelector('#ae-file-gallery').onchange = (e) => handleFile(e.target.files[0]);
-    root.querySelector('#ae-cancel').onclick = () => { modal=null; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
-    root.querySelector('#ae-save').onclick = async () => {
-      const date = root.querySelector('#ae-date').value;
-      const note = root.querySelector('#ae-note').value.trim();
-      if(!date || !compressedData){ showToast('请选择日期和照片'); return; }
-      const saveBtn = root.querySelector('#ae-save');
-      saveBtn.disabled = true;
-      saveBtn.textContent = '保存中…';
-      try{
-        const projectId = modal.projectId;
-        const meta = await loadMeta(projectId);
-        const idx = meta.findIndex(m=>m.date===date);
-        if(idx>=0){ meta[idx].note = note; } else { meta.push({date, note}); }
-        await saveMeta(projectId, meta);
-        await savePhoto(projectId, date, compressedData);
-        const proj = projects.find(p=>p.id===projectId);
-        proj.count = meta.length;
-        proj.lastDate = meta.reduce((a,b)=> a>b.date?a:b.date, meta[0].date);
-        await saveProjects();
-        modal = null;
-        render();
-      }catch(e){
-        showToast('保存失败：' + e.message);
-        saveBtn.disabled = false;
-        saveBtn.textContent = '保存';
-      }
-    };
-  }
-
-  if(modal.type === 'confirmDeleteProject'){
-    root.innerHTML = `
-      <div class="overlay" id="modal-overlay">
-        <div class="sheet">
-          <h2>删除项目</h2>
-          <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;">此项目下的所有照片和记录都会被删除，且无法恢复。确定要删除吗？</p>
-          <div class="sheet-actions">
-            <button class="cancel" id="cd-cancel">取消</button>
-            <button class="save" style="background:var(--danger);" id="cd-confirm">删除</button>
-          </div>
-        </div>
-      </div>
-    `;
-    root.querySelector('#cd-cancel').onclick = () => { modal=null; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
-    root.querySelector('#cd-confirm').onclick = async () => {
-      const id = modal.id;
-      const meta = await loadMeta(id);
-      for(const e of meta){ await deletePhoto(id, e.date); }
-      try{ await idbDelete('meta:'+id); }catch(e){}
-      projects = projects.filter(p=>p.id!==id);
-      await saveProjects();
-      modal = null;
-      view = { name:'home' };
-      render();
-    };
-  }
-
-  if(modal.type === 'confirmDeleteEntry'){
-    root.innerHTML = `
-      <div class="overlay" id="modal-overlay">
-        <div class="sheet">
-          <h2>删除这条记录</h2>
-          <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;">${fmtDate(modal.date)} 的照片和备注会被删除。确定吗？</p>
-          <div class="sheet-actions">
-            <button class="cancel" id="ce-cancel">取消</button>
-            <button class="save" style="background:var(--danger);" id="ce-confirm">删除</button>
-          </div>
-        </div>
-      </div>
-    `;
-    root.querySelector('#ce-cancel').onclick = () => { modal=null; render(); };
-    root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
-    root.querySelector('#ce-confirm').onclick = async () => {
-      const { projectId, date } = modal;
-      let meta = await loadMeta(projectId);
-      meta = meta.filter(m=>m.date!==date);
-      await saveMeta(projectId, meta);
-      await deletePhoto(projectId, date);
-      const proj = projects.find(p=>p.id===projectId);
-      proj.count = meta.length;
-      proj.lastDate = meta.length ? meta.reduce((a,b)=> a>b.date?a:b.date, meta[0].date) : null;
-      await saveProjects();
-      selected.delete(date);
-      modal = null;
-      render();
-    };
-  }
+      o+=2+len;
+    }
+  }catch(err){}
+  return null;
+}
+async function handleFiles(e){
+ const incoming=[...e.target.files].slice(0,6-files.length);
+ for(const f of incoming){
+   const r=new FileReader();
+   const date=await getPhotoDate(f);
+   if(date && !$('recordDate').dataset.manual) $('recordDate').value=date;
+   r.onload=ev=>{files.push(ev.target.result);renderPreview()};
+   r.readAsDataURL(f);
+ }
 }
 
-/* ---------------- Bindings ---------------- */
-
-function bindHome(){
-  document.getElementById('new-project-btn').onclick = () => { modal = {type:'newProject'}; render(); };
-  document.querySelectorAll('.project-card').forEach(card=>{
-    card.addEventListener('click', (e) => {
-      if(e.target.dataset.del) return;
-      view = { name:'project', id: card.dataset.id };
-      compareMode = false; selected = new Set();
-      render();
-    });
-  });
-  document.querySelectorAll('[data-del]').forEach(el=>{
-    el.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      modal = { type:'confirmDeleteProject', id: el.dataset.del };
-      render();
-    });
-  });
+function renderPreview(){$('preview').innerHTML=files.map((x,i)=>`<div><img src="${x}"><button class="remove" onclick="removeFile(${i})">×</button></div>`).join('')}
+function removeFile(i){files.splice(i,1);renderPreview()}
+function saveRecord(){
+ if(!files.length){alert('请至少添加一张照片');return}
+ currentProject.records.push({id:Date.now(),date:$('recordDate').value,photos:files,note:$('recordNote').value.trim()});
+ persist();renderTimeline();renderHome();go('detail')
+}
+function openCompare(){
+ if(currentProject.records.length<2){alert('至少需要 2 次记录才能生成对比图');return}
+ selected=[];renderChoices();go('compare')
+}
+function renderChoices(){
+ const el=$('recordChoices');el.innerHTML='';
+ [...currentProject.records].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
+  const d=document.createElement('div');d.className='record'+(selected.includes(r.id)?' selected':'');
+  d.onclick=()=>toggleSelect(r.id);d.innerHTML=`<img src="${r.photos[0]}"><div class="check">✓</div><div class="record-body"><div class="record-date">${formatDate(r.date)}</div><div class="record-note">${esc(r.note||'无备注')}</div></div>`;
+  el.appendChild(d)
+ })}
+function toggleSelect(id){
+ if(selected.includes(id))selected=selected.filter(x=>x!==id);
+ else if(selected.length<5)selected.push(id);else {alert('最多选择 5 个日期');return}
+ renderChoices()
+}
+function setLayout(x){layout=x;$('vBtn').classList.toggle('selected',x==='vertical');$('hBtn').classList.toggle('selected',x==='horizontal')}
+function makeCompare(){
+ if(selected.length<2){alert('请选择至少 2 个日期');return}
+ editorRecords=selected.map(id=>currentProject.records.find(r=>r.id===id)).sort((a,b)=>a.date.localeCompare(b.date));
+ editorScale=editorRecords.map(()=>1); editorOffset=editorRecords.map(()=>({x:0,y:0}));
+ editorIndex=0; compareUrls=editorRecords.map(r=>r.photos[0]);
+ setupEditor(); go('result')
+}
+function setupEditor(){
+ editorCanvas=$('editCanvas'); editorCtx=editorCanvas.getContext('2d');
+ $('editToolbar').innerHTML=editorRecords.map((r,i)=>`<button class="${i===0?'active':''}" onclick="selectEditorImage(${i})">${formatDate(r.date)}</button>`).join('');
+ editorImages=[]; let loaded=0;
+ editorRecords.forEach((r,i)=>{const im=new Image();im.onload=()=>{editorImages[i]=im;if(++loaded===editorRecords.length){drawEditor();}};im.src=r.photos[0]});
+ updateEditorControls(); bindEditorGestures();
+}
+function selectEditorImage(i){editorIndex=i;document.querySelectorAll('#editToolbar button').forEach((b,n)=>b.classList.toggle('active',n===i));updateEditorControls();drawEditor()}
+function updateEditorControls(){
+ const v=Math.round(editorScale[editorIndex]*100);$('sizeRange').value=v;$('sizeValue').textContent=v+'%'
+}
+function changeImageSize(v){editorScale[editorIndex]=Number(v)/100;$('sizeValue').textContent=v+'%';drawEditor()}
+function fitRect(im, boxW, boxH){
+ const s=Math.max(boxW/im.width, boxH/im.height); return {w:im.width*s,h:im.height*s}
+}
+function drawEditor(){
+ if(!editorCtx || !editorImages.length)return;
+ const W=900, gap=24, pad=38, labelH=72;
+ let itemW, itemH;
+ if(layout==='horizontal'){itemW=(W-pad*2-gap*(editorRecords.length-1))/editorRecords.length; itemH=Math.round(itemW*1.08)}
+ else {itemW=W-pad*2; itemH=Math.round(itemW*0.82)}
+ const H=layout==='horizontal'?itemH+labelH+pad*2:editorRecords.length*(itemH+labelH+gap)+pad*2;
+ editorCanvas.width=W;editorCanvas.height=H;
+ editorCtx.fillStyle='#fffdfa';editorCtx.fillRect(0,0,W,H);
+ editorRecords.forEach((r,i)=>{
+   const x=layout==='horizontal'?pad+i*(itemW+gap):pad;
+   const y=layout==='horizontal'?pad:pad+i*(itemH+labelH+gap);
+   const im=editorImages[i]; if(!im)return;
+   const fit=fitRect(im,itemW,itemH), sc=editorScale[i], ow=fit.w*sc, oh=fit.h*sc;
+   const ox=editorOffset[i].x, oy=editorOffset[i].y;
+   editorCtx.save();editorCtx.beginPath();editorCtx.rect(x,y,itemW,itemH);editorCtx.clip();
+   editorCtx.drawImage(im,x+(itemW-ow)/2+ox,y+(itemH-oh)/2+oy,ow,oh);editorCtx.restore();
+   editorCtx.fillStyle='#292724';editorCtx.font='600 20px -apple-system, sans-serif';editorCtx.fillText(formatDate(r.date),x,y+itemH+30);
+   if(r.note){editorCtx.fillStyle='#777';editorCtx.font='15px -apple-system, sans-serif';editorCtx.fillText(r.note.slice(0,Math.max(10,Math.floor(itemW/10))),x,y+itemH+55)}
+ });
+}
+function pointerPoint(e){const r=editorCanvas.getBoundingClientRect();return {x:(e.clientX-r.left)*(editorCanvas.width/r.width),y:(e.clientY-r.top)*(editorCanvas.height/r.height)}}
+function bindEditorGestures(){
+ if(editorCanvas._bound)return; editorCanvas._bound=true;
+ editorCanvas.addEventListener('pointerdown',e=>{editorCanvas.setPointerCapture(e.pointerId);dragState={id:e.pointerId,p:pointerPoint(e),ox:editorOffset[editorIndex].x,oy:editorOffset[editorIndex].y}});
+ editorCanvas.addEventListener('pointermove',e=>{if(!dragState||dragState.id!==e.pointerId)return;const q=pointerPoint(e);editorOffset[editorIndex].x=dragState.ox+q.x-dragState.p.x;editorOffset[editorIndex].y=dragState.oy+q.y-dragState.p.y;drawEditor()});
+ editorCanvas.addEventListener('pointerup',()=>dragState=null);editorCanvas.addEventListener('pointercancel',()=>dragState=null);
+ let touches=[];
+ editorCanvas.addEventListener('touchstart',e=>{if(e.touches.length===2){e.preventDefault();touches=[...e.touches];pinchState={base:dist(touches[0],touches[1]),scale:editorScale[editorIndex]}}},{passive:false});
+ editorCanvas.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinchState){e.preventDefault();const d=dist(e.touches[0],e.touches[1]);editorScale[editorIndex]=Math.max(.5,Math.min(1.4,pinchState.scale*d/pinchState.base));updateEditorControls();drawEditor()}},{passive:false});
+ editorCanvas.addEventListener('touchend',e=>{if(e.touches.length<2)pinchState=null});
+}
+function dist(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}
+function downloadEdited(){
+ const a=document.createElement('a');a.download=`Trace-${currentProject.name}-${Date.now()}.jpg`;a.href=editorCanvas.toDataURL('image/jpeg',.92);a.click()
 }
 
-function bindProject(proj, meta){
-  document.getElementById('back-btn').onclick = () => { view = {name:'home'}; compareMode=false; selected=new Set(); render(); };
-
-  // load thumbnails async
-  meta.forEach(async (e) => {
-    const photo = await loadPhoto(proj.id, e.date);
-    const imgEl = document.querySelector(`[data-thumb="${e.date}"]`);
-    if(imgEl && photo) imgEl.src = photo;
-  });
-
-  if(compareMode){
-    document.getElementById('cancel-compare-btn').onclick = () => { compareMode=false; selected=new Set(); render(); };
-    document.querySelectorAll('[data-check]').forEach(el=>{
-      el.addEventListener('click', () => {
-        const d = el.dataset.check;
-        if(selected.has(d)) selected.delete(d);
-        else { if(selected.size>=5){ showToast('最多选择 5 个日期'); return; } selected.add(d); }
-        render();
-      });
-    });
-    const genBtn = document.getElementById('gen-compare-btn');
-    if(genBtn) genBtn.onclick = async () => {
-      showToast('正在生成对比图…');
-      const dates = Array.from(selected).sort();
-      const entries = [];
-      for(const d of dates){
-        const photo = await loadPhoto(proj.id, d);
-        const m = meta.find(x=>x.date===d);
-        entries.push({ date: d, note: m ? m.note : '', photo });
-      }
-      const image = await generateComparison(proj.name, entries);
-      view = { name:'compareResult', id: proj.id, image };
-      compareMode = false; selected = new Set();
-      render();
-    };
-  } else {
-    const toggleBtn = document.getElementById('toggle-compare-btn');
-    if(toggleBtn) toggleBtn.onclick = () => { if(meta.length<2) return; compareMode=true; selected=new Set(); render(); };
-    document.getElementById('add-entry-btn').onclick = () => { modal = {type:'addEntry', projectId: proj.id}; render(); };
-    document.querySelectorAll('[data-del-entry]').forEach(el=>{
-      el.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        modal = { type:'confirmDeleteEntry', projectId: proj.id, date: el.dataset.delEntry };
-        render();
-      });
-    });
+function exifDateFromDataURL(dataUrl){
+ try{
+  const bin=atob(dataUrl.split(',')[1]); if(bin.charCodeAt(0)!==0xFF||bin.charCodeAt(1)!==0xD8)return null;
+  let i=2;
+  while(i<bin.length-1){
+   if(bin.charCodeAt(i)!==0xFF){i++;continue}
+   const marker=bin.charCodeAt(i+1); if(marker===0xD9||marker===0xDA)break;
+   const len=(bin.charCodeAt(i+2)<<8)|bin.charCodeAt(i+3);
+   if(marker===0xE1 && bin.substr(i+4,6)==='Exif\\0\\0'){
+    const t=i+10, little=bin.charCodeAt(t)===0x49;
+    const u16=o=>little?(bin.charCodeAt(o)|bin.charCodeAt(o+1)<<8):(bin.charCodeAt(o)<<8|bin.charCodeAt(o+1));
+    const u32=o=>little?(bin.charCodeAt(o)|bin.charCodeAt(o+1)<<8|bin.charCodeAt(o+2)<<16|bin.charCodeAt(o+3)<<24)>>>0:((bin.charCodeAt(o)<<24|bin.charCodeAt(o+1)<<16|bin.charCodeAt(o+2)<<8|bin.charCodeAt(o+3))>>>0);
+    const ifd=t+u32(t+4); const n=u16(ifd);
+    for(let k=0;k<n;k++){const o=ifd+2+k*12, tag=u16(o), type=u16(o+2), count=u32(o+4);if(tag===0x9003||tag===0x0132){let ptr=count<=4?o+8:t+u32(o+8);let s='';for(let j=0;j<19&&ptr+j<bin.length;j++){const c=bin.charCodeAt(ptr+j);if(c===0)break;s+=String.fromCharCode(c)};const m=s.match(/(\\d{4}):(\\d{2}):(\\d{2})/);if(m)return `${m[1]}-${m[2]}-${m[3]}`}}
+   }
+   i+=2+len;
   }
+ }catch(e){}
+ return null;
 }
 
-function bindCompareResult(){
-  document.getElementById('back-btn').onclick = () => { view = {name:'project', id: view.id}; render(); };
-}
-
-/* ---------------- Init ---------------- */
-
-(async function init(){
-  await loadProjects();
-  render();
-})();
+function formatDate(s){const [y,m,d]=s.split('-');return `${y}.${m}.${d}`}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+renderHome();
 </script>
 </body>
 </html>
