@@ -444,6 +444,27 @@
   .cust-item .cust-slider-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
   .cust-item .cust-slider-row label{font-size:11.5px;color:var(--ink-soft);width:56px;flex-shrink:0;}
   .cust-item .cust-slider-row input[type=range]{flex:1;}
+  .cust-strip{
+    display:flex;
+    height:190px;
+    border-radius:16px;
+    overflow:hidden;
+    margin-bottom:18px;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+  }
+  .cust-strip .strip-item{
+    overflow:hidden;
+    position:relative;
+    height:100%;
+    min-width:6px;
+  }
+  .cust-strip .strip-item img{
+    width:100%;height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .cust-strip .strip-item.active-item{outline:2.5px solid var(--accent);outline-offset:-2.5px;z-index:1;}
   .toast{
     position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
     background:var(--ink);color:#fff;
@@ -920,11 +941,16 @@ function renderProject(proj, meta){
 }
 
 function renderCompareCustomize(proj, meta){
+  const strip = compareCustom.map(c => `
+    <div class="strip-item" data-strip="${c.date}" style="flex:1 1 0;">
+      <img data-strip-img="${c.date}" src="">
+    </div>
+  `).join('');
   const items = compareCustom.map(c => {
     const m = meta.find(x=>x.date===c.date);
     return `
       <div class="cust-item" data-date="${c.date}">
-        <div class="cust-preview"><img data-cust-thumb="${c.date}" src="" style="object-position:${Math.round(c.focalX*100)}% 50%;"></div>
+        <div class="cust-preview"><img data-cust-thumb="${c.date}" src=""></div>
         <div class="cust-controls">
           <div class="cust-date">${fmtDate(c.date)}${m && m.note ? ' · ' + escapeHtml(m.note) : ''}</div>
           <div class="cust-slider-row">
@@ -945,7 +971,8 @@ function renderCompareCustomize(proj, meta){
       <h1>调整拼图</h1>
     </header>
     <main>
-      <p style="font-size:13px;color:var(--ink-soft);margin:-6px 0 16px;line-height:1.6;">照片会无缝拼接在一起，"展示宽度"决定每张照片在图中占多宽，"露出范围"决定照片左右哪部分被保留。</p>
+      <p style="font-size:13px;color:var(--ink-soft);margin:-6px 0 14px;line-height:1.6;">下面就是实时预览效果，照片会无缝拼接。拖动"展示宽度"改变这张照片占多宽，拖动"露出范围"改变左右哪部分被保留（拖动对应照片时会高亮）。</p>
+      <div class="cust-strip" id="cust-strip">${strip}</div>
       ${items}
     </main>
     <div class="fab-row" style="position:static;width:100%;margin-top:6px;">
@@ -1491,37 +1518,57 @@ function bindProject(proj, meta){
 async function bindCompareCustomize(proj, meta){
   document.getElementById('back-btn').onclick = () => { view = { name:'project', id: proj.id }; compareMode = true; render(); };
 
-  compareCustom.forEach(async c => {
+  function updateStrip(c){
+    const stripDiv = document.querySelector(`[data-strip="${c.date}"]`);
+    if(stripDiv) stripDiv.style.flex = `${Math.max(0.08, (c.aspect||0.72) * c.weight)} 1 0`;
+    const stripImg = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(stripImg) stripImg.style.objectPosition = Math.round(c.focalX*100)+'% 50%';
+  }
+  function highlight(date, on){
+    const stripDiv = document.querySelector(`[data-strip="${date}"]`);
+    if(stripDiv) stripDiv.classList.toggle('active-item', on);
+  }
+
+  // load each photo once, read its natural aspect ratio, and paint the live strip + small identity thumb
+  await Promise.all(compareCustom.map(async c => {
     const photo = await loadPhoto(proj.id, c.date);
-    const imgEl = document.querySelector(`[data-cust-thumb="${c.date}"]`);
-    if(imgEl && photo) imgEl.src = photo;
-  });
+    c.photo = photo;
+    if(photo){
+      try{ const img = await loadImg(photo); c.aspect = img.naturalWidth / img.naturalHeight; }
+      catch(e){ c.aspect = 0.72; }
+    } else { c.aspect = 0.72; }
+    const stripImg = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(stripImg && photo) stripImg.src = photo;
+    const thumbImg = document.querySelector(`[data-cust-thumb="${c.date}"]`);
+    if(thumbImg && photo) thumbImg.src = photo;
+    updateStrip(c);
+  }));
 
   document.querySelectorAll('[data-cust-weight]').forEach(el=>{
-    el.oninput = () => {
-      const c = compareCustom.find(x=>x.date===el.dataset.custWeight);
-      if(c) c.weight = parseFloat(el.value);
-    };
+    const date = el.dataset.custWeight;
+    const c = compareCustom.find(x=>x.date===date);
+    const fire = () => { c.weight = parseFloat(el.value); updateStrip(c); };
+    el.addEventListener('input', fire);
+    el.addEventListener('pointerdown', () => highlight(date, true));
+    ['pointerup','pointercancel'].forEach(evt => el.addEventListener(evt, () => highlight(date, false)));
   });
   document.querySelectorAll('[data-cust-focal]').forEach(el=>{
-    el.oninput = () => {
-      const c = compareCustom.find(x=>x.date===el.dataset.custFocal);
-      if(c) c.focalX = parseFloat(el.value);
-      const preview = document.querySelector(`[data-cust-thumb="${el.dataset.custFocal}"]`);
-      if(preview) preview.style.objectPosition = Math.round(parseFloat(el.value)*100)+'% 50%';
-    };
+    const date = el.dataset.custFocal;
+    const c = compareCustom.find(x=>x.date===date);
+    const fire = () => { c.focalX = parseFloat(el.value); updateStrip(c); };
+    el.addEventListener('input', fire);
+    el.addEventListener('pointerdown', () => highlight(date, true));
+    ['pointerup','pointercancel'].forEach(evt => el.addEventListener(evt, () => highlight(date, false)));
   });
 
   document.getElementById('cust-gen-btn').onclick = async () => {
     const btn = document.getElementById('cust-gen-btn');
     btn.disabled = true; btn.textContent = '生成中…';
     try{
-      const entries = [];
-      for(const c of compareCustom){
-        const photo = await loadPhoto(proj.id, c.date);
+      const entries = compareCustom.map(c => {
         const m = meta.find(x=>x.date===c.date);
-        entries.push({ date:c.date, note: m ? m.note : '', photo, weight:c.weight, focalX:c.focalX });
-      }
+        return { date:c.date, note: m ? m.note : '', photo:c.photo, weight:c.weight, focalX:c.focalX };
+      });
       const image = await generateComparison(proj.name, entries);
       view = { name:'compareResult', id: proj.id, image };
       compareMode = false; selected = new Set(); compareCustom = [];
