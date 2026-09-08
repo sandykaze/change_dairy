@@ -802,6 +802,36 @@ button:active{transform:scale(.985)}
 }
 </style>
 
+
+<style id="remove-date-row-mask">
+/* 日期行不再使用遮罩/半透明底色 */
+.date-row,
+.date-label,
+.collage-date,
+[data-date-label],
+[data-date-row] {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* 如果日期行是伪元素生成的遮罩，也一并关闭 */
+.date-row::before,
+.date-row::after,
+.date-label::before,
+.date-label::after,
+.collage-date::before,
+.collage-date::after,
+[data-date-label]::before,
+[data-date-label]::after {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  content: none !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app" id="app"></div>
