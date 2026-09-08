@@ -431,22 +431,21 @@
   .global-size-head strong{font-size:13px;color:var(--ink);}
   .global-size input[type=range]{width:100%;}
   .touch-hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.45;}
-  .cust-strip{display:flex;width:100%;height:210px;border-radius:16px;overflow:hidden;margin-bottom:14px;background:var(--surface-alt);border:1px solid var(--border);touch-action:none;user-select:none;}
-  .cust-strip.vertical{height:360px;display:flex;flex-direction:column;}
+  .cust-preview-wrap{width:100%;overflow:hidden;border-radius:16px;margin-bottom:14px;background:var(--surface-alt);}
+  .cust-strip{display:flex;width:100%;aspect-ratio:1.6129;height:auto;border-radius:16px;overflow:hidden;background:var(--surface-alt);border:1px solid var(--border);touch-action:none;user-select:none;}
+  .cust-strip.vertical{aspect-ratio:.62;height:auto;display:flex;flex-direction:column;}
   .cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:1 1 0;touch-action:none;background:#E4E7DF;}
-  .cust-strip .strip-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+  .cust-strip .strip-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;transform-origin:center center;}
   .cust-strip .strip-item.active-item{outline:3px solid var(--accent);outline-offset:-3px;z-index:2;}
   .cust-strip .strip-item::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(15,17,12,.22));opacity:0;transition:opacity .15s;}
   .cust-strip .strip-item.active-item::after{opacity:1;}
   .cust-item{display:none;}
   .compare-result{width:100%;overflow-x:auto;overflow-y:auto;border-radius:16px;background:var(--surface-alt);border:1px solid var(--border);padding:8px;-webkit-overflow-scrolling:touch;}
   .compare-result img{display:block;width:100%;max-width:100%;height:auto;border-radius:10px;margin:0 auto;}
-  .result-actions{display:flex;gap:10px;margin-top:14px;}
-  .result-actions .fab{position:static;transform:none;width:auto;flex:1;box-shadow:none;}
-  @media (max-width:380px){
-    .cust-strip{height:190px;}
-    .cust-strip.vertical{height:320px;}
-  }
+  .result-actions{display:flex;gap:10px;margin-top:14px;width:100%;}
+  .result-action-btn{flex:1;min-width:0;padding:14px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--accent-dark);font-family:inherit;font-size:14px;font-weight:600;line-height:1.2;text-align:center;cursor:pointer;}
+  .result-action-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+
   .toast{
     position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
     background:var(--ink);color:#fff;
@@ -735,30 +734,42 @@ function wrapText(ctx, text, maxWidth, maxLines){
 // weight   - relative display-width multiplier for this photo (1 = its natural "cover" width at ROW_H)
 // focalX   - 0..1, which part of the photo's width stays visible when it's narrower than its natural cover width
 async function generateComparison(projectName, entries, orientation='horizontal', globalSize=460){
-  const TITLE_H = 64, PAD = 20, RADIUS = 18;
-  const SIZE = Math.max(240, Math.round(globalSize));
+  // Logical size follows the preview exactly; a high-DPI backing canvas keeps photos and text sharp.
+  const TITLE_H = 72, PAD = 22, RADIUS = 18;
+  const SIZE = Math.max(280, Math.round(globalSize));
+  const ratio = 0.62;
   const imgs = await Promise.all(entries.map(e => e.photo ? loadImg(e.photo) : Promise.resolve(null)));
   const n = Math.max(1, entries.length);
   let width, height;
   if(orientation === 'horizontal'){
     width = SIZE;
-    height = Math.max(360, Math.min(620, Math.round(width * 0.62)));
+    height = Math.max(240, Math.round(width * ratio));
   }else{
     height = SIZE;
-    width = Math.max(320, Math.min(620, Math.round(height * 0.62)));
+    width = Math.max(240, Math.round(height * ratio));
   }
-  // Global size controls the whole puzzle. Every photo gets exactly 1/n of the corresponding axis.
-  const part = orientation === 'horizontal' ? width/n : height/n;
+
+  const dpr = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
+  const logicalW = width;
+  const logicalH = height + TITLE_H + PAD;
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(width);
-  canvas.height = Math.round(height + TITLE_H + PAD);
-  const ctx = canvas.getContext('2d');
+  canvas.width = Math.round(logicalW * dpr);
+  canvas.height = Math.round(logicalH * dpr);
+  canvas.style.width = logicalW + 'px';
+  canvas.style.height = logicalH + 'px';
+  const ctx = canvas.getContext('2d', {alpha:false});
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   ctx.fillStyle = '#F7F8F4';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(0,0,logicalW,logicalH);
   ctx.fillStyle = '#23291F';
   ctx.font = '600 28px "Source Serif 4", Georgia, serif';
   ctx.textAlign = 'left';
-  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 18);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 20);
+
   ctx.save();
   roundRectPath(ctx, 0, TITLE_H, width, height, RADIUS);
   ctx.clip();
@@ -766,40 +777,42 @@ async function generateComparison(projectName, entries, orientation='horizontal'
     const img=imgs[i];
     const focalX = e.focalX == null ? .5 : e.focalX;
     const focalY = e.focalY == null ? .5 : e.focalY;
+    const zoom = Math.max(1, e.zoom || 1);
     let x=0,y=0,w=width,h=height;
-    if(orientation==='horizontal'){ x=i*part; w=part; }
-    else { y=i*part; h=part; }
-    ctx.save(); ctx.beginPath(); ctx.rect(x,y+TITLE_H,w,h); ctx.clip();
+    if(orientation==='horizontal'){ x=i*(width/n); w=width/n; }
+    else { y=i*(height/n); h=height/n; }
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x,y+TITLE_H,w,h); ctx.clip();
     if(img){
-      const scale=Math.max(w/img.width,h/img.height);
-      const dw=img.width*scale, dh=img.height*scale;
+      const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight) * zoom;
+      const dw=img.naturalWidth*scale, dh=img.naturalHeight*scale;
       let dx=x+w/2-focalX*dw, dy=y+TITLE_H+h/2-focalY*dh;
       dx=Math.min(x,Math.max(x+w-dw,dx));
       dy=Math.min(y+TITLE_H,Math.max(y+TITLE_H+h-dh,dy));
       ctx.drawImage(img,dx,dy,dw,dh);
-    }else{ ctx.fillStyle='#E4E7DF'; ctx.fillRect(x,y+TITLE_H,w,h); }
-    // subtle text overlay, larger and more readable on mobile
+    }else{
+      ctx.fillStyle='#E4E7DF'; ctx.fillRect(x,y+TITLE_H,w,h);
+    }
     const grad=orientation==='horizontal'
-      ? ctx.createLinearGradient(0,y+TITLE_H+h*.62,0,y+TITLE_H+h)
-      : ctx.createLinearGradient(x+w*.62,0,x+w,0);
+      ? ctx.createLinearGradient(0,y+TITLE_H+h*.58,0,y+TITLE_H+h)
+      : ctx.createLinearGradient(x+w*.58,0,x+w,0);
     grad.addColorStop(0,'rgba(15,17,12,0)'); grad.addColorStop(1,'rgba(15,17,12,.72)');
     ctx.fillStyle=grad;
-    if(orientation==='horizontal') ctx.fillRect(x,y+TITLE_H+h*.55,w,h*.45);
-    else ctx.fillRect(x+w*.55,y+TITLE_H,w*.45,h);
+    if(orientation==='horizontal') ctx.fillRect(x,y+TITLE_H+h*.52,w,h*.48);
+    else ctx.fillRect(x+w*.52,y+TITLE_H,w*.48,h);
     const pad=16, textW=Math.max(40,w-pad*2);
     ctx.textAlign='left'; ctx.fillStyle='#fff';
     let ty=y+TITLE_H+h-16;
-    if(orientation==='vertical'){ ty=y+TITLE_H+h-16; }
     if(e.note){
-      ctx.font='400 15px Inter, sans-serif'; ctx.fillStyle='rgba(255,255,255,.92)';
+      ctx.font='400 16px Inter, sans-serif'; ctx.fillStyle='rgba(255,255,255,.96)';
       const lines=wrapText(ctx,e.note,textW,2);
-      for(let li=lines.length-1;li>=0;li--){ctx.fillText(lines[li],x+pad,ty);ty-=21;}
+      for(let li=lines.length-1;li>=0;li--){ctx.fillText(lines[li],x+pad,ty);ty-=22;}
     }
     ctx.font='700 18px Inter, sans-serif'; ctx.fillStyle='#fff';
     ctx.fillText(fmtDateShort(e.date),x+pad,ty);
     ctx.restore();
     if(i<n-1){
-      ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2; ctx.beginPath();
+      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5; ctx.beginPath();
       if(orientation==='horizontal'){ctx.moveTo(x+w,y+TITLE_H);ctx.lineTo(x+w,y+TITLE_H+h);}
       else{ctx.moveTo(x,y+TITLE_H+h);ctx.lineTo(x+w,y+TITLE_H+h);}
       ctx.stroke();
@@ -924,15 +937,13 @@ function renderCompareCustomize(proj, meta){
         <button class="orientation-btn ${orientation==='vertical'?'active':''}" data-orientation="vertical">纵向排列</button>
       </div>
       <div class="global-size">
-        <div class="global-size-head"><label>${orientation==='horizontal'?'展示高度':'展示宽度'}</label><strong id="global-size-value">${size}px</strong></div>
+        <div class="global-size-head"><label>${orientation==='horizontal'?'展示宽度':'展示高度'}</label><strong id="global-size-value">${size}px</strong></div>
         <input type="range" id="global-size" min="280" max="900" step="10" value="${size}">
         <div class="touch-hint">拼图整体${orientation==='horizontal'?'高度':'宽度'}，每张图片会自动等分。预览区可直接用手指拖动，调整当前图片露出的位置。</div>
       </div>
-      <div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div>
+      <div class="cust-preview-wrap"><div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div></div>
       <div class="touch-hint" style="margin:0 2px 14px;">点击一张图后拖动：左右拖动调整横向露出范围，上下拖动调整纵向露出范围。</div>
-      <div class="fab-row" style="position:static;width:100%;margin-top:4px;">
-        <button class="fab" id="cust-gen-btn">生成对比图</button>
-      </div>
+      <button class="fab" id="cust-gen-btn" style="position:static;transform:none;width:100%;max-width:none;margin-top:4px;">生成对比图</button>
     </main>
   `;
 }
@@ -1439,7 +1450,7 @@ function bindProject(proj, meta){
     const genBtn = document.getElementById('gen-compare-btn');
     if(genBtn) genBtn.onclick = async () => {
       const dates = Array.from(selected).sort();
-      compareCustom = dates.map(d => ({ date: d, weight: 1, focalX: 0.5 }));
+      compareCustom = dates.map(d => ({ date: d, focalX: 0.5, focalY: 0.5, zoom: 1 }));
       view = { name:'compareCustomize', id: proj.id };
       render();
     };
@@ -1493,14 +1504,9 @@ async function bindCompareCustomize(proj, meta){
   function updatePreviewLayout(){
     const vertical = compareCustom.orientation === 'vertical';
     strip.classList.toggle('vertical', vertical);
-    // CSS preview is intentionally allowed to scroll when the global puzzle is wider/taller than the phone.
-    if(vertical){
-      strip.style.width = '100%';
-      strip.style.height = Math.min(520, Math.max(300, compareCustom.globalSize * .78)) + 'px';
-    }else{
-      strip.style.width = '100%';
-      strip.style.height = Math.min(300, Math.max(180, compareCustom.globalSize * .48)) + 'px';
-    }
+    // Preview uses the exact same aspect ratio as the generated image; the size slider changes the logical output size, not the phone viewport width.
+    strip.style.aspectRatio = vertical ? '.62' : '1.6129';
+    strip.style.height = 'auto';
     sizeValue.textContent = Math.round(compareCustom.globalSize) + 'px';
   }
 
@@ -1508,6 +1514,7 @@ async function bindCompareCustomize(proj, meta){
     const img = document.querySelector(`[data-strip-img="${c.date}"]`);
     if(!img) return;
     img.style.objectPosition = `${Math.round((c.focalX ?? .5)*100)}% ${Math.round((c.focalY ?? .5)*100)}%`;
+    img.style.transform = `scale(${c.zoom ?? 1})`;
   }
 
   await Promise.all(compareCustom.map(async c => {
@@ -1515,6 +1522,7 @@ async function bindCompareCustomize(proj, meta){
     c.photo = photo;
     c.focalX = c.focalX ?? .5;
     c.focalY = c.focalY ?? .5;
+    c.zoom = c.zoom ?? 1;
     const img = document.querySelector(`[data-strip-img="${c.date}"]`);
     if(img && photo) img.src = photo;
     updateImage(c);
@@ -1535,59 +1543,69 @@ async function bindCompareCustomize(proj, meta){
     updatePreviewLayout();
   };
 
-  // Direct manipulation: tap a photo to select it, then drag to change the exposed range.
+  // Direct manipulation: one finger drags the selected photo; two fingers pinch-zoom it.
   let drag = null;
   let pinch = null;
+  const pointers = new Map();
+
   strip.addEventListener('pointerdown', e=>{
     const item = e.target.closest('.strip-item');
     if(!item) return;
     const date=item.dataset.strip;
     const c=compareCustom.find(x=>x.date===date); if(!c) return;
     setActive(date, true);
-    if(e.pointerType==='touch'){
-      // A second touch starts a pinch gesture for the global puzzle size.
-      const activePointers = [...strip._pointers || []];
-      if(!strip._pointers) strip._pointers=[];
-      strip._pointers.push({id:e.pointerId,x:e.clientX,y:e.clientY});
-      if(strip._pointers.length===2){
-        const [a,b]=strip._pointers;
-        pinch={startDist:Math.hypot(a.x-b.x,a.y-b.y),startSize:compareCustom.globalSize};
-        drag=null;
-      }else{
-        drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
-      }
+    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,date});
+
+    if(pointers.size===2){
+      const pts=[...pointers.values()];
+      const a=pts[0], b=pts[1];
+      const sameDate=a.date===b.date ? a.date : date;
+      const target=compareCustom.find(x=>x.date===sameDate) || c;
+      pinch={date:target.date,startDist:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),startZoom:target.zoom||1};
+      drag=null;
     }else{
       drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
     }
     try{strip.setPointerCapture(e.pointerId);}catch(err){}
     e.preventDefault();
   });
+
   strip.addEventListener('pointermove', e=>{
-    if(!strip._pointers) strip._pointers=[];
-    const p=strip._pointers.find(x=>x.id===e.pointerId); if(p){p.x=e.clientX;p.y=e.clientY;}
-    if(pinch && strip._pointers.length>=2){
-      const [a,b]=strip._pointers;
-      const dist=Math.max(30,Math.hypot(a.x-b.x,a.y-b.y));
-      compareCustom.globalSize=Math.max(280,Math.min(900,pinch.startSize*(dist/pinch.startDist)));
-      sizeSlider.value=compareCustom.globalSize;
-      updatePreviewLayout();
+    const p=pointers.get(e.pointerId);
+    if(p){p.x=e.clientX;p.y=e.clientY;}
+
+    if(pinch && pointers.size>=2){
+      const pts=[...pointers.values()];
+      const a=pts[0], b=pts[1];
+      const dist=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y));
+      const c=compareCustom.find(x=>x.date===pinch.date);
+      if(c){
+        c.zoom=Math.max(1,Math.min(3.5,pinch.startZoom*(dist/pinch.startDist)));
+        updateImage(c);
+      }
       e.preventDefault(); return;
     }
+
     if(!drag || drag.id!==e.pointerId) return;
     const c=compareCustom.find(x=>x.date===drag.date); if(!c) return;
     const item=strip.querySelector(`[data-strip="${drag.date}"]`);
+    if(!item) return;
     const rect=item.getBoundingClientRect();
-    c.focalX=Math.max(0,Math.min(1,drag.startFX+(e.clientX-drag.startX)/Math.max(1,rect.width)));
-    c.focalY=Math.max(0,Math.min(1,drag.startFY+(e.clientY-drag.startY)/Math.max(1,rect.height)));
+    // Drag feels natural: move the photo in the same direction as the finger.
+    const sensitivityX=1/Math.max(1,rect.width);
+    const sensitivityY=1/Math.max(1,rect.height);
+    c.focalX=Math.max(0,Math.min(1,drag.startFX-(e.clientX-drag.startX)*sensitivityX));
+    c.focalY=Math.max(0,Math.min(1,drag.startFY-(e.clientY-drag.startY)*sensitivityY));
     updateImage(c);
     e.preventDefault();
   });
+
   const endPointer=e=>{
-    if(strip._pointers) strip._pointers=strip._pointers.filter(x=>x.id!==e.pointerId);
-    if(strip._pointers?.length<2) pinch=null;
+    pointers.delete(e.pointerId);
+    if(pointers.size<2) pinch=null;
     if(drag?.id===e.pointerId) drag=null;
   };
-  ['pointerup','pointercancel'].forEach(ev=>strip.addEventListener(ev,endPointer));
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>strip.addEventListener(ev,endPointer));
 
   document.getElementById('cust-gen-btn').onclick = async () => {
     const btn=document.getElementById('cust-gen-btn');
@@ -1595,7 +1613,7 @@ async function bindCompareCustomize(proj, meta){
     try{
       const entries=compareCustom.map(c=>{
         const m=meta.find(x=>x.date===c.date);
-        return {date:c.date,note:m?m.note:'',photo:c.photo,focalX:c.focalX,focalY:c.focalY};
+        return {date:c.date,note:m?m.note:'',photo:c.photo,focalX:c.focalX,focalY:c.focalY,zoom:c.zoom||1};
       });
       const image=await generateComparison(proj.name,entries,compareCustom.orientation,compareCustom.globalSize);
       view={name:'compareResult',id:proj.id,image,orientation:compareCustom.orientation};
