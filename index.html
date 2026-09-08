@@ -421,50 +421,32 @@
   }
   .ratio-row button.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
 
-  /* ---- Compare customize (per-photo width / exposed range) ---- */
-  .cust-item{
-    display:flex;
-    gap:12px;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:12px;
-    margin-bottom:10px;
+  /* ---- Compare customize ---- */
+  .orientation-row{display:flex;gap:8px;margin:0 0 14px;}
+  .orientation-btn{flex:1;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .orientation-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .global-size{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 15px;margin-bottom:14px;}
+  .global-size-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;}
+  .global-size-head label{font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .global-size-head strong{font-size:13px;color:var(--ink);}
+  .global-size input[type=range]{width:100%;}
+  .touch-hint{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.45;}
+  .cust-strip{display:flex;width:100%;height:210px;border-radius:16px;overflow:hidden;margin-bottom:14px;background:var(--surface-alt);border:1px solid var(--border);touch-action:none;user-select:none;}
+  .cust-strip.vertical{height:360px;display:flex;flex-direction:column;}
+  .cust-strip .strip-item{overflow:hidden;position:relative;min-width:0;min-height:0;flex:1 1 0;touch-action:none;background:#E4E7DF;}
+  .cust-strip .strip-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+  .cust-strip .strip-item.active-item{outline:3px solid var(--accent);outline-offset:-3px;z-index:2;}
+  .cust-strip .strip-item::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 70%,rgba(15,17,12,.22));opacity:0;transition:opacity .15s;}
+  .cust-strip .strip-item.active-item::after{opacity:1;}
+  .cust-item{display:none;}
+  .compare-result{width:100%;overflow-x:auto;overflow-y:auto;border-radius:16px;background:var(--surface-alt);border:1px solid var(--border);padding:8px;-webkit-overflow-scrolling:touch;}
+  .compare-result img{display:block;width:100%;max-width:100%;height:auto;border-radius:10px;margin:0 auto;}
+  .result-actions{display:flex;gap:10px;margin-top:14px;}
+  .result-actions .fab{position:static;transform:none;width:auto;flex:1;box-shadow:none;}
+  @media (max-width:380px){
+    .cust-strip{height:190px;}
+    .cust-strip.vertical{height:320px;}
   }
-  .cust-item .cust-preview{
-    width:70px;height:90px;
-    border-radius:10px;
-    overflow:hidden;
-    background:var(--surface-alt);
-    flex-shrink:0;
-  }
-  .cust-item .cust-preview img{width:100%;height:100%;object-fit:cover;display:block;}
-  .cust-item .cust-controls{flex:1;min-width:0;}
-  .cust-item .cust-date{font-weight:600;font-size:13.5px;margin-bottom:6px;}
-  .cust-item .cust-slider-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
-  .cust-item .cust-slider-row label{font-size:11.5px;color:var(--ink-soft);width:56px;flex-shrink:0;}
-  .cust-item .cust-slider-row input[type=range]{flex:1;}
-  .cust-strip{
-    display:flex;
-    height:190px;
-    border-radius:16px;
-    overflow:hidden;
-    margin-bottom:18px;
-    background:var(--surface-alt);
-    border:1px solid var(--border);
-  }
-  .cust-strip .strip-item{
-    overflow:hidden;
-    position:relative;
-    height:100%;
-    min-width:6px;
-  }
-  .cust-strip .strip-item img{
-    width:100%;height:100%;
-    object-fit:cover;
-    display:block;
-  }
-  .cust-strip .strip-item.active-item{outline:2.5px solid var(--accent);outline-offset:-2.5px;z-index:1;}
   .toast{
     position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
     background:var(--ink);color:#fff;
@@ -752,93 +734,77 @@ function wrapText(ctx, text, maxWidth, maxLines){
 // entries: [{date, note, photo, weight, focalX}]
 // weight   - relative display-width multiplier for this photo (1 = its natural "cover" width at ROW_H)
 // focalX   - 0..1, which part of the photo's width stays visible when it's narrower than its natural cover width
-async function generateComparison(projectName, entries){
-  const ROW_H = 460, TITLE_H = 58, PAD = 20, RADIUS = 18, MIN_COL = 60;
+async function generateComparison(projectName, entries, orientation='horizontal', globalSize=460){
+  const TITLE_H = 64, PAD = 20, RADIUS = 18;
+  const SIZE = Math.max(240, Math.round(globalSize));
   const imgs = await Promise.all(entries.map(e => e.photo ? loadImg(e.photo) : Promise.resolve(null)));
-
-  const colInfo = entries.map((e, i) => {
-    const img = imgs[i];
-    const weight = e.weight || 1;
-    if(!img) return { dw: ROW_H*0.6, dh: ROW_H, colW: Math.max(MIN_COL, ROW_H*0.6*weight) };
-    const scale = ROW_H / img.height;
-    const dw = img.width * scale, dh = ROW_H;
-    const colW = Math.max(MIN_COL, dw * weight);
-    return { dw, dh, colW };
-  });
-
-  const width = Math.round(colInfo.reduce((a,c)=>a+c.colW, 0));
-  const height = TITLE_H + ROW_H + PAD;
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = '#F7F8F4';
-  ctx.fillRect(0,0,width,height);
-
-  ctx.fillStyle = '#23291F';
-  ctx.font = '600 24px "Source Serif 4", Georgia, serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 16);
-
-  ctx.save();
-  roundRectPath(ctx, 0, TITLE_H, width, ROW_H, RADIUS);
-  ctx.clip();
-
-  let x = 0;
-  for(let i=0;i<entries.length;i++){
-    const e = entries[i], img = imgs[i], { dw, dh, colW } = colInfo[i];
-    const y = TITLE_H;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, y, colW, ROW_H);
-    ctx.clip();
-
-    if(img){
-      const focalX = (e.focalX==null) ? 0.5 : e.focalX;
-      let dx = x + colW/2 - focalX*dw; // left edge of the drawn (scaled) image
-      dx = Math.min(x, Math.max(dx, x + colW - dw)); // keep the column fully covered
-      ctx.drawImage(img, dx, y, dw, dh);
-    } else {
-      ctx.fillStyle = '#E4E7DF';
-      ctx.fillRect(x, y, colW, ROW_H);
-    }
-
-    // floating text scrim
-    const grad = ctx.createLinearGradient(0, y+ROW_H*0.55, 0, y+ROW_H);
-    grad.addColorStop(0, 'rgba(15,17,12,0)');
-    grad.addColorStop(1, 'rgba(15,17,12,0.72)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y+ROW_H*0.55, colW, ROW_H*0.45);
-
-    const textPad = 14;
-    const textW = Math.max(20, colW - textPad*2);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#fff';
-    ctx.font = '700 16px Inter, sans-serif';
-    let ty = y + ROW_H - 14;
-    if(e.note){
-      ctx.font = '400 12.5px Inter, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.88)';
-      const lines = wrapText(ctx, e.note, textW, 2);
-      for(let li=lines.length-1; li>=0; li--){
-        ctx.fillText(lines[li], x+textPad, ty);
-        ty -= 17;
-      }
-    }
-    ctx.font = '700 15px Inter, sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(fmtDateShort(e.date), x+textPad, ty);
-
-    ctx.restore();
-
-    if(i < entries.length-1){
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x+colW, y); ctx.lineTo(x+colW, y+ROW_H); ctx.stroke();
-    }
-    x += colW;
+  const n = Math.max(1, entries.length);
+  let width, height;
+  if(orientation === 'horizontal'){
+    width = SIZE;
+    height = Math.max(360, Math.min(620, Math.round(width * 0.62)));
+  }else{
+    height = SIZE;
+    width = Math.max(320, Math.min(620, Math.round(height * 0.62)));
   }
+  // Global size controls the whole puzzle. Every photo gets exactly 1/n of the corresponding axis.
+  const part = orientation === 'horizontal' ? width/n : height/n;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width);
+  canvas.height = Math.round(height + TITLE_H + PAD);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#F7F8F4';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#23291F';
+  ctx.font = '600 28px "Source Serif 4", Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(projectName + ' · 变化对比', PAD, TITLE_H - 18);
+  ctx.save();
+  roundRectPath(ctx, 0, TITLE_H, width, height, RADIUS);
+  ctx.clip();
+  entries.forEach((e,i)=>{
+    const img=imgs[i];
+    const focalX = e.focalX == null ? .5 : e.focalX;
+    const focalY = e.focalY == null ? .5 : e.focalY;
+    let x=0,y=0,w=width,h=height;
+    if(orientation==='horizontal'){ x=i*part; w=part; }
+    else { y=i*part; h=part; }
+    ctx.save(); ctx.beginPath(); ctx.rect(x,y+TITLE_H,w,h); ctx.clip();
+    if(img){
+      const scale=Math.max(w/img.width,h/img.height);
+      const dw=img.width*scale, dh=img.height*scale;
+      let dx=x+w/2-focalX*dw, dy=y+TITLE_H+h/2-focalY*dh;
+      dx=Math.min(x,Math.max(x+w-dw,dx));
+      dy=Math.min(y+TITLE_H,Math.max(y+TITLE_H+h-dh,dy));
+      ctx.drawImage(img,dx,dy,dw,dh);
+    }else{ ctx.fillStyle='#E4E7DF'; ctx.fillRect(x,y+TITLE_H,w,h); }
+    // subtle text overlay, larger and more readable on mobile
+    const grad=orientation==='horizontal'
+      ? ctx.createLinearGradient(0,y+TITLE_H+h*.62,0,y+TITLE_H+h)
+      : ctx.createLinearGradient(x+w*.62,0,x+w,0);
+    grad.addColorStop(0,'rgba(15,17,12,0)'); grad.addColorStop(1,'rgba(15,17,12,.72)');
+    ctx.fillStyle=grad;
+    if(orientation==='horizontal') ctx.fillRect(x,y+TITLE_H+h*.55,w,h*.45);
+    else ctx.fillRect(x+w*.55,y+TITLE_H,w*.45,h);
+    const pad=16, textW=Math.max(40,w-pad*2);
+    ctx.textAlign='left'; ctx.fillStyle='#fff';
+    let ty=y+TITLE_H+h-16;
+    if(orientation==='vertical'){ ty=y+TITLE_H+h-16; }
+    if(e.note){
+      ctx.font='400 15px Inter, sans-serif'; ctx.fillStyle='rgba(255,255,255,.92)';
+      const lines=wrapText(ctx,e.note,textW,2);
+      for(let li=lines.length-1;li>=0;li--){ctx.fillText(lines[li],x+pad,ty);ty-=21;}
+    }
+    ctx.font='700 18px Inter, sans-serif'; ctx.fillStyle='#fff';
+    ctx.fillText(fmtDateShort(e.date),x+pad,ty);
+    ctx.restore();
+    if(i<n-1){
+      ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2; ctx.beginPath();
+      if(orientation==='horizontal'){ctx.moveTo(x+w,y+TITLE_H);ctx.lineTo(x+w,y+TITLE_H+h);}
+      else{ctx.moveTo(x,y+TITLE_H+h);ctx.lineTo(x+w,y+TITLE_H+h);}
+      ctx.stroke();
+    }
+  });
   ctx.restore();
   return canvas.toDataURL('image/png');
 }
@@ -941,43 +907,33 @@ function renderProject(proj, meta){
 }
 
 function renderCompareCustomize(proj, meta){
+  const orientation = compareCustom.orientation || 'horizontal';
+  const size = compareCustom.globalSize || 460;
   const strip = compareCustom.map(c => `
-    <div class="strip-item" data-strip="${c.date}" style="flex:1 1 0;">
-      <img data-strip-img="${c.date}" src="">
-    </div>
-  `).join('');
-  const items = compareCustom.map(c => {
-    const m = meta.find(x=>x.date===c.date);
-    return `
-      <div class="cust-item" data-date="${c.date}">
-        <div class="cust-preview"><img data-cust-thumb="${c.date}" src=""></div>
-        <div class="cust-controls">
-          <div class="cust-date">${fmtDate(c.date)}${m && m.note ? ' · ' + escapeHtml(m.note) : ''}</div>
-          <div class="cust-slider-row">
-            <label>展示宽度</label>
-            <input type="range" min="0.5" max="1.8" step="0.01" value="${c.weight}" data-cust-weight="${c.date}">
-          </div>
-          <div class="cust-slider-row">
-            <label>露出范围</label>
-            <input type="range" min="0" max="1" step="0.01" value="${c.focalX}" data-cust-focal="${c.date}">
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
+    <div class="strip-item" data-strip="${c.date}">
+      <img data-strip-img="${c.date}" src="" alt="">
+    </div>`).join('');
   return `
     <header class="topbar">
       <div class="back" id="back-btn">←</div>
       <h1>调整拼图</h1>
     </header>
     <main>
-      <p style="font-size:13px;color:var(--ink-soft);margin:-6px 0 14px;line-height:1.6;">下面就是实时预览效果，照片会无缝拼接。拖动"展示宽度"改变这张照片占多宽，拖动"露出范围"改变左右哪部分被保留（拖动对应照片时会高亮）。</p>
-      <div class="cust-strip" id="cust-strip">${strip}</div>
-      ${items}
+      <div class="orientation-row">
+        <button class="orientation-btn ${orientation==='horizontal'?'active':''}" data-orientation="horizontal">横向排列</button>
+        <button class="orientation-btn ${orientation==='vertical'?'active':''}" data-orientation="vertical">纵向排列</button>
+      </div>
+      <div class="global-size">
+        <div class="global-size-head"><label>${orientation==='horizontal'?'展示高度':'展示宽度'}</label><strong id="global-size-value">${size}px</strong></div>
+        <input type="range" id="global-size" min="280" max="900" step="10" value="${size}">
+        <div class="touch-hint">拼图整体${orientation==='horizontal'?'高度':'宽度'}，每张图片会自动等分。预览区可直接用手指拖动，调整当前图片露出的位置。</div>
+      </div>
+      <div class="cust-strip ${orientation==='vertical'?'vertical':''}" id="cust-strip">${strip}</div>
+      <div class="touch-hint" style="margin:0 2px 14px;">点击一张图后拖动：左右拖动调整横向露出范围，上下拖动调整纵向露出范围。</div>
+      <div class="fab-row" style="position:static;width:100%;margin-top:4px;">
+        <button class="fab" id="cust-gen-btn">生成对比图</button>
+      </div>
     </main>
-    <div class="fab-row" style="position:static;width:100%;margin-top:6px;">
-      <button class="fab" id="cust-gen-btn">生成对比图</button>
-    </div>
   `;
 }
 
@@ -991,9 +947,10 @@ function renderCompareResult(){
       <div class="compare-result">
         <img id="compare-img" src="${view.image}" alt="对比图">
       </div>
-      <p style="text-align:center;font-size:13px;color:var(--ink-soft);margin:12px 0 18px;">长按图片可直接保存到手机相册</p>
-      <div class="fab-row" style="position:static;width:100%;">
-        <button class="fab" id="share-btn">分享 / 保存到相册</button>
+      <p style="text-align:center;font-size:13px;color:var(--ink-soft);line-height:1.5;margin:12px 4px 14px;">可以双指缩放查看，也可以长按图片保存到手机相册。</p>
+      <div class="result-actions">
+        <button class="fab secondary" id="result-back-btn">返回记录</button>
+        <button class="fab" id="share-btn">分享 / 保存</button>
       </div>
     </main>
   `;
@@ -1516,91 +1473,151 @@ function bindProject(proj, meta){
 }
 
 async function bindCompareCustomize(proj, meta){
-  document.getElementById('back-btn').onclick = () => { view = { name:'project', id: proj.id }; compareMode = true; render(); };
+  const strip = document.getElementById('cust-strip');
+  const sizeSlider = document.getElementById('global-size');
+  const sizeValue = document.getElementById('global-size-value');
+  let activeDate = compareCustom[0]?.date || null;
 
-  function updateStrip(c){
-    const stripDiv = document.querySelector(`[data-strip="${c.date}"]`);
-    if(stripDiv) stripDiv.style.flex = `${Math.max(0.08, (c.aspect||0.72) * c.weight)} 1 0`;
-    const stripImg = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(stripImg) stripImg.style.objectPosition = Math.round(c.focalX*100)+'% 50%';
-  }
-  function highlight(date, on){
-    const stripDiv = document.querySelector(`[data-strip="${date}"]`);
-    if(stripDiv) stripDiv.classList.toggle('active-item', on);
+  compareCustom.orientation = compareCustom.orientation || 'horizontal';
+  compareCustom.globalSize = compareCustom.globalSize || 460;
+
+  document.getElementById('back-btn').onclick = () => {
+    view = { name:'project', id: proj.id }; compareMode = true; render();
+  };
+
+  function setActive(date, on=true){
+    activeDate = date;
+    document.querySelectorAll('.strip-item').forEach(el=>el.classList.toggle('active-item', on && el.dataset.strip===date));
   }
 
-  // load each photo once, read its natural aspect ratio, and paint the live strip + small identity thumb
+  function updatePreviewLayout(){
+    const vertical = compareCustom.orientation === 'vertical';
+    strip.classList.toggle('vertical', vertical);
+    // CSS preview is intentionally allowed to scroll when the global puzzle is wider/taller than the phone.
+    if(vertical){
+      strip.style.width = '100%';
+      strip.style.height = Math.min(520, Math.max(300, compareCustom.globalSize * .78)) + 'px';
+    }else{
+      strip.style.width = '100%';
+      strip.style.height = Math.min(300, Math.max(180, compareCustom.globalSize * .48)) + 'px';
+    }
+    sizeValue.textContent = Math.round(compareCustom.globalSize) + 'px';
+  }
+
+  function updateImage(c){
+    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(!img) return;
+    img.style.objectPosition = `${Math.round((c.focalX ?? .5)*100)}% ${Math.round((c.focalY ?? .5)*100)}%`;
+  }
+
   await Promise.all(compareCustom.map(async c => {
     const photo = await loadPhoto(proj.id, c.date);
     c.photo = photo;
-    if(photo){
-      try{ const img = await loadImg(photo); c.aspect = img.naturalWidth / img.naturalHeight; }
-      catch(e){ c.aspect = 0.72; }
-    } else { c.aspect = 0.72; }
-    const stripImg = document.querySelector(`[data-strip-img="${c.date}"]`);
-    if(stripImg && photo) stripImg.src = photo;
-    const thumbImg = document.querySelector(`[data-cust-thumb="${c.date}"]`);
-    if(thumbImg && photo) thumbImg.src = photo;
-    updateStrip(c);
+    c.focalX = c.focalX ?? .5;
+    c.focalY = c.focalY ?? .5;
+    const img = document.querySelector(`[data-strip-img="${c.date}"]`);
+    if(img && photo) img.src = photo;
+    updateImage(c);
   }));
+  updatePreviewLayout();
+  setActive(activeDate, false);
 
-  document.querySelectorAll('[data-cust-weight]').forEach(el=>{
-    const date = el.dataset.custWeight;
-    const c = compareCustom.find(x=>x.date===date);
-    const fire = () => { c.weight = parseFloat(el.value); updateStrip(c); };
-    el.addEventListener('input', fire);
-    el.addEventListener('pointerdown', () => highlight(date, true));
-    ['pointerup','pointercancel'].forEach(evt => el.addEventListener(evt, () => highlight(date, false)));
+  document.querySelectorAll('[data-orientation]').forEach(btn=>{
+    btn.onclick = () => {
+      compareCustom.orientation = btn.dataset.orientation;
+      document.querySelectorAll('[data-orientation]').forEach(b=>b.classList.toggle('active', b===btn));
+      updatePreviewLayout();
+    };
   });
-  document.querySelectorAll('[data-cust-focal]').forEach(el=>{
-    const date = el.dataset.custFocal;
-    const c = compareCustom.find(x=>x.date===date);
-    const fire = () => { c.focalX = parseFloat(el.value); updateStrip(c); };
-    el.addEventListener('input', fire);
-    el.addEventListener('pointerdown', () => highlight(date, true));
-    ['pointerup','pointercancel'].forEach(evt => el.addEventListener(evt, () => highlight(date, false)));
+
+  sizeSlider.oninput = () => {
+    compareCustom.globalSize = parseFloat(sizeSlider.value);
+    updatePreviewLayout();
+  };
+
+  // Direct manipulation: tap a photo to select it, then drag to change the exposed range.
+  let drag = null;
+  let pinch = null;
+  strip.addEventListener('pointerdown', e=>{
+    const item = e.target.closest('.strip-item');
+    if(!item) return;
+    const date=item.dataset.strip;
+    const c=compareCustom.find(x=>x.date===date); if(!c) return;
+    setActive(date, true);
+    if(e.pointerType==='touch'){
+      // A second touch starts a pinch gesture for the global puzzle size.
+      const activePointers = [...strip._pointers || []];
+      if(!strip._pointers) strip._pointers=[];
+      strip._pointers.push({id:e.pointerId,x:e.clientX,y:e.clientY});
+      if(strip._pointers.length===2){
+        const [a,b]=strip._pointers;
+        pinch={startDist:Math.hypot(a.x-b.x,a.y-b.y),startSize:compareCustom.globalSize};
+        drag=null;
+      }else{
+        drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
+      }
+    }else{
+      drag={id:e.pointerId,date,startX:e.clientX,startY:e.clientY,startFX:c.focalX,startFY:c.focalY};
+    }
+    try{strip.setPointerCapture(e.pointerId);}catch(err){}
+    e.preventDefault();
   });
+  strip.addEventListener('pointermove', e=>{
+    if(!strip._pointers) strip._pointers=[];
+    const p=strip._pointers.find(x=>x.id===e.pointerId); if(p){p.x=e.clientX;p.y=e.clientY;}
+    if(pinch && strip._pointers.length>=2){
+      const [a,b]=strip._pointers;
+      const dist=Math.max(30,Math.hypot(a.x-b.x,a.y-b.y));
+      compareCustom.globalSize=Math.max(280,Math.min(900,pinch.startSize*(dist/pinch.startDist)));
+      sizeSlider.value=compareCustom.globalSize;
+      updatePreviewLayout();
+      e.preventDefault(); return;
+    }
+    if(!drag || drag.id!==e.pointerId) return;
+    const c=compareCustom.find(x=>x.date===drag.date); if(!c) return;
+    const item=strip.querySelector(`[data-strip="${drag.date}"]`);
+    const rect=item.getBoundingClientRect();
+    c.focalX=Math.max(0,Math.min(1,drag.startFX+(e.clientX-drag.startX)/Math.max(1,rect.width)));
+    c.focalY=Math.max(0,Math.min(1,drag.startFY+(e.clientY-drag.startY)/Math.max(1,rect.height)));
+    updateImage(c);
+    e.preventDefault();
+  });
+  const endPointer=e=>{
+    if(strip._pointers) strip._pointers=strip._pointers.filter(x=>x.id!==e.pointerId);
+    if(strip._pointers?.length<2) pinch=null;
+    if(drag?.id===e.pointerId) drag=null;
+  };
+  ['pointerup','pointercancel'].forEach(ev=>strip.addEventListener(ev,endPointer));
 
   document.getElementById('cust-gen-btn').onclick = async () => {
-    const btn = document.getElementById('cust-gen-btn');
-    btn.disabled = true; btn.textContent = '生成中…';
+    const btn=document.getElementById('cust-gen-btn');
+    btn.disabled=true; btn.textContent='生成中…';
     try{
-      const entries = compareCustom.map(c => {
-        const m = meta.find(x=>x.date===c.date);
-        return { date:c.date, note: m ? m.note : '', photo:c.photo, weight:c.weight, focalX:c.focalX };
+      const entries=compareCustom.map(c=>{
+        const m=meta.find(x=>x.date===c.date);
+        return {date:c.date,note:m?m.note:'',photo:c.photo,focalX:c.focalX,focalY:c.focalY};
       });
-      const image = await generateComparison(proj.name, entries);
-      view = { name:'compareResult', id: proj.id, image };
-      compareMode = false; selected = new Set(); compareCustom = [];
-      render();
+      const image=await generateComparison(proj.name,entries,compareCustom.orientation,compareCustom.globalSize);
+      view={name:'compareResult',id:proj.id,image,orientation:compareCustom.orientation};
+      compareMode=false; selected=new Set(); compareCustom=[]; render();
     }catch(e){
-      showToast('生成失败：' + e.message);
-      btn.disabled = false; btn.textContent = '生成对比图';
+      showToast('生成失败：'+e.message); btn.disabled=false; btn.textContent='生成对比图';
     }
   };
 }
 
 function bindCompareResult(){
-  document.getElementById('back-btn').onclick = () => { view = {name:'project', id: view.id}; render(); };
+  document.getElementById('back-btn').onclick = () => { view={name:'project',id:view.id}; render(); };
+  document.getElementById('result-back-btn').onclick = () => {
+    view={name:'project',id:view.id}; compareMode=false; selected=new Set(); render();
+  };
   document.getElementById('share-btn').onclick = async () => {
     try{
-      const blob = dataURLtoBlob(view.image);
-      const file = new File([blob], `对比图-${Date.now()}.png`, { type: 'image/png' });
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        await navigator.share({ files: [file], title: '对比图' });
-        return;
-      }
-      if(navigator.share){
-        // some browsers support share() without file support
-      }
-      // Fallback: open the image in a new tab via a blob URL so the user can long-press / use the browser's save option
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      showToast('已在新标签页打开，长按图片保存');
-    }catch(e){
-      if(e && e.name === 'AbortError') return; // user cancelled the share sheet
-      showToast('分享失败，请直接长按上方图片保存');
-    }
+      const blob=dataURLtoBlob(view.image);
+      const file=new File([blob],`对比图-${Date.now()}.png`,{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'对比图'});return;}
+      const url=URL.createObjectURL(blob); window.open(url,'_blank'); showToast('已在新标签页打开，长按图片保存');
+    }catch(e){ if(e&&e.name==='AbortError')return; showToast('分享失败，请直接长按上方图片保存'); }
   };
 }
 
