@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>时序</title>
+<title>ChronoLens</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Playfair+Display:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#EEF0EA;
@@ -70,6 +70,24 @@
     text-overflow:ellipsis;
     white-space:nowrap;
   }
+  .topbar .brand-title{
+    font-family:'Playfair Display','Source Serif 4',Georgia,serif;
+    font-weight:700;
+    font-size:30px;
+    letter-spacing:0.015em;
+    background:linear-gradient(120deg, var(--ink) 0%, var(--accent-dark) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .brand-subtitle{
+    font-family:'Inter',system-ui,sans-serif;
+    font-weight:500;
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
   header.topbar .sub{
     font-size:13px;
     color:var(--ink-soft);
@@ -106,7 +124,10 @@
     display:flex;align-items:center;justify-content:center;
     font-size:24px;
     flex-shrink:0;
+    overflow:hidden;
   }
+  .project-card .icon .icon-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+  .project-card .icon .icon-fallback{font-size:20px;opacity:.55;}
   .project-card .info{flex:1;min-width:0;}
   .project-card .info .name{
     font-weight:600;
@@ -314,16 +335,6 @@
     color:var(--ink);
   }
   .field textarea{resize:vertical;min-height:64px;}
-  .emoji-row{display:flex;gap:8px;flex-wrap:wrap;}
-  .emoji-row button{
-    width:44px;height:44px;
-    border-radius:12px;
-    border:1.5px solid var(--border);
-    background:var(--surface-alt);
-    font-size:20px;
-    cursor:pointer;
-  }
-  .emoji-row button.sel{border-color:var(--accent);background:var(--accent-soft);}
 
   .photo-picker{
     border:1.5px dashed var(--border);
@@ -548,6 +559,25 @@ header.topbar h1{
   min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+.topbar .brand-title{
+  font-family:"Playfair Display","Source Serif 4",Georgia,serif;
+  font-weight:700;
+  font-size:30px;
+  line-height:1.15;
+  letter-spacing:.015em;
+  background:linear-gradient(120deg, var(--ink) 0%, var(--accent-dark) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.brand-subtitle{
+  font-family:"Inter",system-ui,sans-serif;
+  font-weight:500;
+  font-size:10.5px;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+}
 main{padding:12px 22px 112px}
 
 .empty-state{
@@ -585,7 +615,10 @@ main{padding:12px 22px 112px}
   font-size:21px;
   flex-shrink:0;
   filter:grayscale(.15);
+  overflow:hidden;
 }
+.project-card .icon .icon-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+.project-card .icon .icon-fallback{font-size:18px;opacity:.55;}
 .project-card .info{flex:1;min-width:0}
 .project-card .info .name{
   font-weight:600;font-size:15px;margin-bottom:4px;
@@ -708,12 +741,6 @@ main{padding:12px 22px 112px}
 }
 .field input:focus,.field textarea:focus{border-color:#A7A39A}
 .field textarea{resize:vertical;min-height:68px}
-.emoji-row{display:flex;gap:7px;flex-wrap:wrap}
-.emoji-row button{
-  width:40px;height:40px;border-radius:10px;border:1px solid var(--border);
-  background:var(--surface-alt);font-size:18px;cursor:pointer;filter:grayscale(.2)
-}
-.emoji-row button.sel{border-color:var(--ink);background:#E4E1D9}
 
 .photo-picker{
   border:1px dashed #CFCAC0;border-radius:11px;padding:16px;text-align:center;
@@ -1259,7 +1286,7 @@ function renderHome(){
   } else {
     list = projects.map(p => `
       <div class="project-card" data-id="${p.id}">
-        <div class="icon">${p.icon}</div>
+        <div class="icon"><img class="icon-thumb" data-project-thumb="${p.id}" src="" alt="" style="display:none;"><span class="icon-fallback" data-project-fallback="${p.id}">📷</span></div>
         <div class="info">
           <div class="name">${escapeHtml(p.name)}</div>
           <div class="meta">${p.lastDate ? '最近记录 ' + fmtDateShort(p.lastDate) : '暂无记录'} · ${p.count||0} 条</div>
@@ -1270,7 +1297,12 @@ function renderHome(){
     `).join('');
   }
   return `
-    <header class="topbar"><h1>时序</h1></header><div style="padding:6px 22px 2px;color:var(--ink-soft);font-size:12px;letter-spacing:.02em;">记录变化，留住时间里的细节</div>
+    <header class="topbar" style="padding-bottom:2px;">
+      <div>
+        <h1 class="brand-title">ChronoLens</h1>
+        <div class="brand-subtitle" style="margin-top:5px;">Piiisuke 的时间记录仪</div>
+      </div>
+    </header>
     <main>${list}</main>
     <button class="fab" id="new-project-btn">＋ 新建记录</button>
   `;
@@ -1280,7 +1312,7 @@ function renderProject(proj, meta){
   let rows = '';
   if(meta.length === 0){
     rows = `<div class="empty-state">
-      <div class="glyph">${proj.icon}</div>
+      <div class="glyph">📷</div>
       <p>还没有记录，添加第一张照片开始。</p>
     </div>`;
   } else {
@@ -1389,7 +1421,6 @@ function renderModal(){
   if(modal.type === 'newProject' || modal.type === 'editProject'){
     const isEdit = modal.type === 'editProject';
     const existing = isEdit ? projects.find(p=>p.id===modal.id) : null;
-    const suggestions = ['📷','🦷','😊','🧍','💪','📝','👁️','🖐️','🦵','💇'];
     root.innerHTML = `
       <div class="overlay" id="modal-overlay">
         <div class="sheet">
@@ -1398,13 +1429,6 @@ function renderModal(){
             <label>记录名称</label>
             <input type="text" id="np-name" placeholder="例如：牙周恢复 / 脸部变化 / 体态" value="${isEdit ? escapeHtml(existing.name) : ''}">
           </div>
-          <div class="field">
-            <label>图标（点击输入框可用手机自带的表情键盘，输入任意 emoji）</label>
-            <input type="text" id="np-icon" value="${isEdit ? existing.icon : '📷'}" maxlength="4" style="width:64px;height:52px;font-size:26px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--surface-alt);">
-            <div class="emoji-row" style="margin-top:10px;">
-              ${suggestions.map(ic=>`<button type="button" data-icon="${ic}">${ic}</button>`).join('')}
-            </div>
-          </div>
           <div class="sheet-actions">
             <button class="cancel" id="np-cancel">取消</button>
             <button class="save" id="np-save">${isEdit ? '保存' : '创建'}</button>
@@ -1412,34 +1436,27 @@ function renderModal(){
         </div>
       </div>
     `;
-    const iconInput = root.querySelector('#np-icon');
-    root.querySelectorAll('[data-icon]').forEach(btn=>{
-      btn.onclick = () => { iconInput.value = btn.dataset.icon; };
-    });
     root.querySelector('#np-cancel').onclick = () => { modal=null; render(); };
     root.querySelector('#modal-overlay').onclick = (e)=>{ if(e.target.id==='modal-overlay'){ modal=null; render(); } };
     root.querySelector('#np-save').onclick = async () => {
       if(!isEdit && __creatingProject) return;
       const name = root.querySelector('#np-name').value.trim();
       if(!name){ showToast('请输入记录名称'); return; }
-      const icon = iconInput.value.trim() || '📷';
       const saveBtn = root.querySelector('#np-save');
       saveBtn.disabled = true;
       saveBtn.textContent = isEdit ? '保存中…' : '创建中…';
       const prevName = isEdit ? existing.name : null;
-      const prevIcon = isEdit ? existing.icon : null;
       try{
         if(!isEdit) __creatingProject = true;
         if(isEdit){
           existing.name = name;
-          existing.icon = icon;
           await saveProjects();
           modal = null;
           render();
         } else {
           const now = Date.now();
           const uniqueId = 'proj_' + now.toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-          const proj = { id: uniqueId, name, icon, createdAt: now, count:0, lastDate:null };
+          const proj = { id: uniqueId, name, createdAt: now, count:0, lastDate:null };
           projects.unshift(proj);
           await saveProjects();
           modal = null;
@@ -1447,7 +1464,7 @@ function renderModal(){
           render();
         }
       }catch(e){
-        if(isEdit){ existing.name = prevName; existing.icon = prevIcon; }
+        if(isEdit){ existing.name = prevName; }
         else { projects.shift(); }
         showToast((isEdit?'保存':'创建')+'失败：' + e.message, 4000);
         saveBtn.disabled = false;
@@ -1843,6 +1860,17 @@ function bindHome(){
       modal = { type:'editProject', id: el.dataset.edit };
       render();
     });
+  });
+  projects.forEach(async (p) => {
+    if(!p.lastDate) return;
+    try{
+      const photo = await loadPhoto(p.id, p.lastDate);
+      if(!photo) return;
+      const imgEl = document.querySelector(`[data-project-thumb="${p.id}"]`);
+      const fallbackEl = document.querySelector(`[data-project-fallback="${p.id}"]`);
+      if(imgEl){ imgEl.src = photo; imgEl.style.display = 'block'; }
+      if(fallbackEl){ fallbackEl.style.display = 'none'; }
+    }catch(e){}
   });
 }
 
